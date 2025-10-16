@@ -255,6 +255,64 @@ async def main():
 asyncio.run(main())
 ```
 
+## Experimental v2 Prompts (Beta)
+
+We've developed enhanced v2 prompts that provide better performance through state-of-the-art prompt engineering. These are experimental and in active development.
+
+### What's New in v2
+
+- **🎯 Confidence Scoring**: Know when the AI is certain vs uncertain
+- **📝 Enhanced Reasoning**: More detailed step-by-step explanations
+- **🔧 Domain Optimization**: Specialized prompts for math and code
+- **✅ Better Structure**: Based on analysis of 80+ production AI systems
+
+### Quick Start with v2
+
+```python
+from ace.prompts_v2 import PromptManager
+
+# Use v2 prompts (experimental)
+manager = PromptManager(default_version="2.0")
+
+# Create components with v2 prompts
+generator = Generator(llm, prompt_template=manager.get_generator_prompt())
+reflector = Reflector(llm, prompt_template=manager.get_reflector_prompt())
+curator = Curator(llm, prompt_template=manager.get_curator_prompt())
+
+# Or use domain-specific variants
+math_generator = Generator(llm, prompt_template=manager.get_generator_prompt(domain="math"))
+code_generator = Generator(llm, prompt_template=manager.get_generator_prompt(domain="code"))
+```
+
+### v1 vs v2 Comparison
+
+| Feature | v1 (Default) | v2 (Experimental) |
+|---------|--------------|-------------------|
+| **Token Usage** | Baseline | +30-50% more |
+| **Confidence Scoring** | ❌ | ✅ Tracks uncertainty |
+| **Reasoning Detail** | Basic | Enhanced with steps |
+| **Domain Variants** | ❌ | ✅ Math, Code optimized |
+| **Output Validation** | Basic | Strict JSON schemas |
+| **Status** | Stable | 🔬 Beta/Experimental |
+
+### When to Use v2
+
+- ✅ **Use v2 if you need**: Confidence scores, detailed reasoning, domain-specific optimization
+- ⚠️ **Consider v1 if**: Token cost is critical, you need maximum stability
+- 🔬 **Note**: v2 is experimental and actively evolving based on user feedback
+
+### Examples
+
+```python
+# Compare v1 vs v2 performance
+python examples/compare_v1_v2_prompts.py
+
+# See v2 features in action
+python examples/advanced_prompts_v2.py
+```
+
+See [PROMPT_ENGINEERING.md](docs/PROMPT_ENGINEERING.md) for detailed documentation on v2 prompts.
+
 ## Architecture
 
 ACE implements the Agentic Context Engineering method from the research paper:
