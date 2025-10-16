@@ -1,27 +1,58 @@
-# 🎯 ACE Framework
+# ACE Framework - Agentic Context Engine
 
-**Build self-improving AI agents that learn from experience**
+**Build self-improving AI agents that learn from experience🧠.**
+
+Agentic Context Engine is the easiest way to enhance your AI Agents through continuous learning. 
+
+**Star ⭐️ this repo if you find it useful!**
 
 [![PyPI version](https://badge.fury.io/py/ace-framework.svg)](https://badge.fury.io/py/ace-framework)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Tests](https://github.com/Kayba-ai/agentic-context-engine/actions/workflows/tests.yml/badge.svg)](https://github.com/Kayba-ai/agentic-context-engine/actions)
 
-## 🌟 What is ACE Framework?
-
-ACE (Agentic Context Engineering) is a framework that makes your AI agents smarter over time. Unlike traditional prompting, ACE agents build a "playbook" of strategies that evolve based on experience - learning what works, what doesn't, and continuously improving.
+## What is ACE Framework?
 
 **Think of it as giving your AI agents a living notebook where they write down lessons learned and apply them to future tasks.**
+ACE (Agentic Context Engineering) framework makes your AI agents smarter over time. Unlike traditional prompting, ACE agents build a "playbook" of strategies that evolve based on experience - learning what works, what doesn't, and continuously improving.
 
-### Why ACE?
-
+### Clear Benefits
 - 🧠 **Self-Improving**: Agents get smarter with each task
 - 📈 **20-35% Better Performance**: Proven improvements on complex tasks
 - 🔄 **No Context Collapse**: Preserves valuable knowledge over time
 - 🚀 **100+ LLM Providers**: Works with OpenAI, Anthropic, Google, and more
-- ⚡ **Production Ready**: Built-in retries, fallbacks, and error handling
 
-## 🚀 Quick Start (5 minutes)
+### Core Concepts
+
+ACE uses three specialized roles that work together:
+
+1. **🎯 Generator** - Produces answers using the playbook
+2. **🔍 Reflector** - Analyzes what worked and what didn't
+3. **📝 Curator** - Updates the playbook with new strategies
+
+The magic happens in the **Playbook** - a living document of strategies that evolves with experience.
+ACE prevents "context collapse" through incremental updates rather than full rewrites, preserving valuable strategies over time.
+
+```mermaid
+---
+config:
+  look: neo
+  theme: neutral
+---
+flowchart LR
+    Playbook[("`**📚 Playbook**<br>(Evolving Context)<br><br>•Strategy Bullets<br> ✓ Helpful strategies <br>✗ Harmful patterns <br>○ Neutral observations`")]
+    Start(["**📝Query** <br>User prompt or question"]) --> Generator["**⚙️Generator** <br>Creates initial trajectory and answer with tags"]
+    Generator --> Reflector
+    Playbook -. Provides Context .-> Generator
+    Environment["**🌍 Task Environment**<br>Evaluates answer<br>Provides feedback"] -- Feedback+ <br>Optional Ground Truth --> Reflector
+    Reflector["**🔍 Reflector**<br>Analyzes and provides feedback what was helpful/harmful"]
+    Reflector --> Curator["**📝 Curator**<br>Produces improvement deltas"]
+    Curator --> DeltaOps["**🔀Merger** <br>Updates the playbook with deltas"]
+    DeltaOps -- Incremental<br>Updates --> Playbook
+    Generator <--> Environment
+```
+
+## Quick Start (~5 minutes)
 
 ### 1. Install
 
@@ -58,7 +89,7 @@ print(result)  # Agent applies learned strategies
 
 That's it! Your agent is now learning and improving. 🎉
 
-## 📦 Installation Options
+## Installation Options
 
 ```bash
 # Basic installation
@@ -74,7 +105,7 @@ pip install ace-framework[all]
 pip install ace-framework[dev]
 ```
 
-## ⚙️ Configuration
+## Configuration
 
 ACE works with any LLM provider through LiteLLM:
 
@@ -98,17 +129,7 @@ client = LiteLLMClient(
 )
 ```
 
-## 🎯 Core Concepts
-
-ACE uses three specialized roles that work together:
-
-1. **🎯 Generator** - Produces answers using the playbook
-2. **🔍 Reflector** - Analyzes what worked and what didn't
-3. **📝 Curator** - Updates the playbook with new strategies
-
-The magic happens in the **Playbook** - a living document of strategies that evolves with experience.
-
-## 💡 Usage Examples
+## Demos
 
 ### Basic Q&A Agent
 
@@ -157,64 +178,28 @@ for task in real_world_tasks:
     # Agent automatically updates its strategies
 ```
 
-
-## 📚 Documentation
+## Documentation
 
 - [Quick Start Guide](docs/QUICK_START.md) - Get running in 5 minutes
 - [API Reference](docs/API_REFERENCE.md) - Complete API documentation
 - [Examples](examples/) - Ready-to-run code examples
 - [Prompt Engineering](docs/PROMPT_ENGINEERING.md) - Advanced prompt techniques
 
-## 🏗️ Architecture
-
-```mermaid
----
-config:
-  look: neo
-  theme: neutral
----
-flowchart LR
-    Playbook[("`**📚 Playbook**<br>(Evolving Context)<br><br>•Strategy Bullets<br> ✓ Helpful strategies <br>✗ Harmful patterns <br>○ Neutral observations`")]
-    Start(["**📝Query** <br>User prompt or question"]) --> Generator["**⚙️Generator** <br>Creates initial trajectory and answer with tags"]
-    Generator --> Reflector
-    Playbook -. Provides Context .-> Generator
-    Environment["**🌍 Task Environment**<br>Evaluates answer<br>Provides feedback"] -- Feedback+ <br>Optional Ground Truth --> Reflector
-    Reflector["**🔍 Reflector**<br>Analyzes and provides feedback what was helpful/harmful"]
-    Reflector --> Curator["**📝 Curator**<br>Produces improvement deltas"]
-    Curator --> DeltaOps["**🔀Merger** <br>Updates the playbook with deltas"]
-    DeltaOps -- Incremental<br>Updates --> Playbook
-    Generator <--> Environment
-```
-
-ACE prevents "context collapse" through incremental updates rather than full rewrites, preserving valuable strategies over time.
-
-## 🤝 Contributing
+## Contributing
 
 We love contributions! Check out our [Contributing Guide](CONTRIBUTING.md) to get started.
 
-## 📄 License
+## Acknowledgment
 
-MIT License - see [LICENSE](LICENSE) file
+<div align="center">
 
-## 🔬 Citation
-
-If you use ACE in your research, please cite:
-
-```bibtex
-@article{zhang2024ace,
-  title={Agentic Context Engineering},
-  author={Zhang et al.},
-  journal={arXiv:2510.04618},
-  year={2024}
-}
-```
-
-## 🙏 Acknowledgments
-
-Built with ❤️ by [Kayba](https://kayba.ai) and the open-source community.
+⭐ **Star this repo if you find it useful!** ⭐ <br>
+**Built with ❤️ by [Kayba](https://kayba.ai) and the open-source community**
 
 Based on the [ACE paper](https://arxiv.org/abs/2510.04618) and inspired by [Dynamic Cheatsheet](https://arxiv.org/abs/2504.07952).
+If you use ACE in your research, please cite:
+```bibtex
+@article{zhang2024ace,title={Agentic Context Engineering},author={Zhang et al.},journal={arXiv:2510.04618},year={2024}}
+```
 
----
-
-**Ready to build self-improving AI agents?** [Get started now →](docs/QUICK_START.md)
+</div>
