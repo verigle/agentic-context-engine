@@ -70,21 +70,57 @@ export OPENAI_API_KEY="your-api-key"
 ### 3. Create Your First ACE Agent
 
 ```python
-from ace import ACE, LiteLLMClient
+from ace import (
+    OfflineAdapter, Generator, Reflector, Curator,
+    LiteLLMClient, Sample, TaskEnvironment, EnvironmentResult, Playbook
+)
 
 # Initialize with any LLM
 client = LiteLLMClient(model="gpt-4o-mini")
-ace = ACE(client)
 
-# Teach your agent (it learns from examples)
-ace.learn([
-    {"question": "What is 2+2?", "answer": "4"},
-    {"question": "What is 5*3?", "answer": "15"}
-])
+# Create the three ACE roles
+generator = Generator(client)
+reflector = Reflector(client)
+curator = Curator(client)
 
-# Now it can solve new problems
-result = ace.answer("What is 7*8?")
-print(result)  # Agent applies learned strategies
+# Create an adapter with an empty playbook
+adapter = OfflineAdapter(
+    playbook=Playbook(),
+    generator=generator,
+    reflector=reflector,
+    curator=curator
+)
+
+# Define a simple environment for math problems
+class MathEnvironment(TaskEnvironment):
+    def evaluate(self, sample, generator_output):
+        question = sample.question
+        final_answer = generator_output.final_answer
+
+        # Check if the answer is correct
+        if "2+2" in question and final_answer.strip() == "4":
+            return EnvironmentResult(feedback="Correct!", ground_truth="4")
+        elif "5*3" in question and final_answer.strip() == "15":
+            return EnvironmentResult(feedback="Correct!", ground_truth="15")
+        else:
+            return EnvironmentResult(feedback="Let me check that calculation.")
+
+# Create training samples
+samples = [
+    Sample(question="What is 2+2?", ground_truth="4"),
+    Sample(question="What is 5*3?", ground_truth="15")
+]
+
+# Train the agent
+environment = MathEnvironment()
+results = adapter.run(samples, environment, epochs=1)
+
+# Now use the trained agent
+result = adapter.generator.generate(
+    "What is 7*8?",
+    adapter.playbook
+)
+print(result.final_answer)  # Agent applies learned strategies
 ```
 
 That's it! Your agent is now learning and improving. 🎉
@@ -134,8 +170,10 @@ client = LiteLLMClient(
 ### Basic Q&A Agent
 
 ```python
-from ace import OfflineAdapter, Generator, Reflector, Curator
-from ace import LiteLLMClient, SimpleEnvironment
+from ace import (
+    OfflineAdapter, Generator, Reflector, Curator,
+    LiteLLMClient, Sample, TaskEnvironment, EnvironmentResult, Playbook
+)
 
 # Setup components
 client = LiteLLMClient(model="gpt-4o-mini")
@@ -143,14 +181,31 @@ generator = Generator(client)
 reflector = Reflector(client)
 curator = Curator(client)
 
+# Create a simple Q&A environment
+class QAEnvironment(TaskEnvironment):
+    def evaluate(self, question, trajectory, final_answer):
+        # Simple evaluation based on known answers
+        if "capital of France" in question.lower():
+            if "paris" in final_answer.lower():
+                return EnvironmentResult(feedback="Correct!", ground_truth="Paris")
+        elif "2+2" in question:
+            if "4" in final_answer:
+                return EnvironmentResult(feedback="Correct!", ground_truth="4")
+        return EnvironmentResult(feedback="Answer provided.")
+
 # Create and train an adapter
-adapter = OfflineAdapter(generator, reflector, curator)
-environment = SimpleEnvironment()
+adapter = OfflineAdapter(
+    playbook=Playbook(),
+    generator=generator,
+    reflector=reflector,
+    curator=curator
+)
+environment = QAEnvironment()
 
 # Train on examples
 training_samples = [
-    {"question": "What's the capital of France?", "answer": "Paris"},
-    {"question": "What's 2+2?", "answer": "4"}
+    Sample(question="What's the capital of France?", ground_truth="Paris"),
+    Sample(question="What's 2+2?", ground_truth="4")
 ]
 
 results = adapter.run(training_samples, environment, epochs=2)
@@ -162,7 +217,11 @@ adapter.playbook.save_to_file("my_agent.json")
 ### Online Learning (Learn While Running)
 
 ```python
-from ace import OnlineAdapter
+from ace import OnlineAdapter, Playbook, Sample
+
+# Load an existing playbook or create a new one
+existing_playbook = Playbook.load_from_file("my_agent.json")
+# or Playbook() for a fresh start
 
 # Agent improves while processing real tasks
 adapter = OnlineAdapter(
@@ -173,9 +232,15 @@ adapter = OnlineAdapter(
 )
 
 # Process tasks one by one, learning from each
+real_world_tasks = [
+    Sample(question="What's 10*10?"),
+    Sample(question="What's the capital of Germany?")
+]
+
 for task in real_world_tasks:
-    result = adapter.process(task, environment)
+    result = adapter.run([task], environment, epochs=1)
     # Agent automatically updates its strategies
+    print(f"Answer: {result[0].final_answer}")
 ```
 
 ## Documentation
