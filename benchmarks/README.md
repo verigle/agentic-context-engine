@@ -8,14 +8,14 @@ Evaluation framework for Agentic Context Engineering (ACE) with multiple dataset
 # List available benchmarks
 uv run python scripts/run_benchmark.py list
 
-# Run a benchmark with default settings
-uv run python scripts/run_benchmark.py finer_ord
+# Run ACE evaluation with train/test split (default)
+uv run python scripts/run_benchmark.py finer_ord --limit 100
 
-# Run with custom sample limit (overrides config)
-uv run python scripts/run_benchmark.py simple_qa --limit 50
+# Run baseline only (no ACE learning)
+uv run python scripts/run_benchmark.py simple_qa --limit 50 --skip-adaptation
 
-# Skip ACE adaptation (direct evaluation only)
-uv run python scripts/run_benchmark.py hellaswag --skip-adaptation --limit 20
+# Compare baseline vs ACE side-by-side
+uv run python scripts/run_benchmark.py hellaswag --limit 50 --compare
 ```
 
 ## Available Benchmarks
@@ -40,7 +40,11 @@ uv run python scripts/run_benchmark.py <benchmark> [options]
 - `--limit` - Override sample limit (always overrides config)
 - `--model` - Model name (default: gpt-4o-mini)
 - `--skip-adaptation` - Skip ACE learning (faster baseline)
+- `--compare` - Run both baseline and ACE, then compare results
 - `--epochs` - ACE adaptation epochs (default: 1)
+- `--split-ratio` - Train/test split ratio (default: 0.8)
+- `--online-mode` - Use continuous learning instead of offline
+- `--prompt-version` - Use v1 or v2 prompts (default: v1)
 - `--save-detailed` - Save per-sample results
 - `--quiet` - Suppress progress output
 
@@ -50,10 +54,19 @@ uv run python scripts/run_benchmark.py <benchmark> [options]
 # Quick test with 10 samples
 uv run python scripts/run_benchmark.py finer_ord --limit 10 --quiet
 
-# Full ACE evaluation
-uv run python scripts/run_benchmark.py simple_qa --epochs 3 --save-detailed
+# Compare baseline vs ACE
+uv run python scripts/run_benchmark.py simple_qa --limit 50 --compare
 
-# Test all benchmarks quickly
+# Full ACE evaluation with v2 prompts
+uv run python scripts/run_benchmark.py simple_qa --epochs 3 --prompt-version v2 --save-detailed
+
+# Online learning mode
+uv run python scripts/run_benchmark.py hellaswag --limit 100 --online-mode
+
+# Custom train/test split (90/10)
+uv run python scripts/run_benchmark.py mmlu --limit 100 --split-ratio 0.9
+
+# Test all benchmarks quickly (baseline only)
 for benchmark in finer_ord simple_qa hellaswag arc_easy; do
   uv run python scripts/run_benchmark.py $benchmark --limit 5 --skip-adaptation --quiet
 done
@@ -88,9 +101,30 @@ metadata:
   domain: "my_domain"
 ```
 
+## Evaluation Modes
+
+The benchmark script supports three evaluation modes:
+
+1. **ACE Mode (default)**: Train/test split with learning
+   ```bash
+   uv run python scripts/run_benchmark.py simple_qa --limit 100
+   ```
+
+2. **Baseline Mode**: No learning, direct evaluation
+   ```bash
+   uv run python scripts/run_benchmark.py simple_qa --limit 100 --skip-adaptation
+   ```
+
+3. **Comparison Mode**: Runs both baseline and ACE, shows improvement
+   ```bash
+   uv run python scripts/run_benchmark.py simple_qa --limit 100 --compare
+   ```
+
 ## Notes
 
+- **Default 80/20 train/test split** prevents overfitting and shows true generalization
 - The `--limit` parameter always overrides config file limits
 - ACE adaptation improves performance through iterative learning
-- Use `--skip-adaptation` for faster baseline evaluation
+- Use `--compare` to see baseline vs ACE improvement side-by-side
+- Overfitting warnings help identify when ACE memorizes vs generalizes
 - Opik tracing warnings ("Failed to log adaptation metrics") are harmless

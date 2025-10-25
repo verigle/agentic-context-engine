@@ -239,6 +239,45 @@ If Opik is not installed or configured, ACE continues to work normally without t
 
 ---
 
+## 📊 Benchmarks
+
+Evaluate ACE performance with scientific rigor using our comprehensive benchmark suite.
+
+### Quick Benchmark
+
+```bash
+# Compare baseline vs ACE on any benchmark
+uv run python scripts/run_benchmark.py simple_qa --limit 50 --compare
+
+# Run with proper train/test split (prevents overfitting)
+uv run python scripts/run_benchmark.py finer_ord --limit 100
+
+# Baseline evaluation (no ACE learning)
+uv run python scripts/run_benchmark.py hellaswag --limit 50 --skip-adaptation
+```
+
+### Available Benchmarks
+
+| Benchmark | Description | Domain |
+|-----------|-------------|---------|
+| **simple_qa** | Question Answering (SQuAD) | General |
+| **finer_ord** | Financial Named Entity Recognition | Finance |
+| **mmlu** | Massive Multitask Language Understanding | General Knowledge |
+| **hellaswag** | Commonsense Reasoning | Common Sense |
+| **arc_easy/arc_challenge** | AI2 Reasoning Challenge | Reasoning |
+
+### Evaluation Modes
+
+- **ACE Mode**: Train/test split with learning (shows true generalization)
+- **Baseline Mode**: Direct evaluation without learning (`--skip-adaptation`)
+- **Comparison Mode**: Side-by-side baseline vs ACE (`--compare`)
+
+The benchmark system prevents overfitting with automatic 80/20 train/test splits and provides overfitting analysis to ensure honest metrics.
+
+**[→ Full Benchmark Documentation](benchmarks/README.md)**
+
+---
+
 ## Documentation
 
 - [Quick Start Guide](docs/QUICK_START.md) - Get running in 5 minutes

@@ -34,6 +34,7 @@ from ace import (
     Reflector,
     Curator,
     OfflineAdapter,
+    OnlineAdapter,
     Playbook,
 )
 from ace.llm_providers import LiteLLMClient
@@ -106,6 +107,28 @@ def parse_args() -> argparse.Namespace:
         "--skip-adaptation",
         action="store_true",
         help="Skip ACE adaptation and run direct evaluation"
+    )
+    parser.add_argument(
+        "--split-ratio",
+        type=float,
+        default=0.8,
+        help="Train/test split ratio (default: 0.8 = 80%% train, 20%% test)"
+    )
+    parser.add_argument(
+        "--online-mode",
+        action="store_true",
+        help="Use online learning (OnlineAdapter) instead of offline adaptation"
+    )
+    parser.add_argument(
+        "--prompt-version",
+        choices=["v1", "v2"],
+        default="v1",
+        help="Prompt version to use (default: v1)"
+    )
+    parser.add_argument(
+        "--compare",
+        action="store_true",
+        help="Run both baseline and ACE, then compare results"
     )
 
     # Output configuration
@@ -295,24 +318,169 @@ Answer with just the letter (A, B, C, or D)."""
     return samples
 
 
+def run_comparison_mode(args: argparse.Namespace, samples: List[Sample], manager: BenchmarkTaskManager) -> None:
+    """Run both baseline and ACE evaluations, then compare results."""
+    print(f"🚀 Running COMPARISON MODE for {args.benchmark}")
+    print(f"Model: {args.model}, Samples: {len(samples)}, Prompt: {args.prompt_version}")
+    print("="*60)
+
+    # Run baseline evaluation
+    print("\n1️⃣ Running BASELINE evaluation...")
+    baseline_args = argparse.Namespace(**vars(args))
+    baseline_args.skip_adaptation = True
+    baseline_results = run_evaluation(baseline_args, samples, manager)
+
+    # Run ACE evaluation
+    print("\n2️⃣ Running ACE evaluation...")
+    ace_args = argparse.Namespace(**vars(args))
+    ace_args.skip_adaptation = False
+    ace_results = run_evaluation(ace_args, samples, manager)
+
+    # Compare and display results
+    print("\n" + "="*80)
+    print("📊 BASELINE vs ACE COMPARISON")
+    print("="*80)
+
+    # Get metrics from both runs
+    baseline_summary = baseline_results.get("summary", {})
+
+    # For ACE, use test performance (true generalization)
+    ace_summary = ace_results.get("test_summary", ace_results.get("summary", {}))
+
+    print(f"\n🔬 BASELINE Performance:")
+    for metric, value in baseline_summary.items():
+        if metric.endswith("_mean"):
+            base_metric = metric[:-5]
+            print(f"  {base_metric.replace('_', ' ').title()}: {value:.2%}")
+
+    print(f"\n🧠 ACE Performance (Test - True Generalization):")
+    for metric, value in ace_summary.items():
+        if metric.endswith("_mean"):
+            base_metric = metric[:-5]
+            improvement = ""
+            if metric in baseline_summary:
+                diff = value - baseline_summary[metric]
+                if diff > 0:
+                    improvement = f" (+{diff:.2%} ✅)"
+                elif diff < 0:
+                    improvement = f" ({diff:.2%} ⚠️)"
+                else:
+                    improvement = " (no change)"
+            print(f"  {base_metric.replace('_', ' ').title()}: {value:.2%}{improvement}")
+
+    # Show overfitting analysis if available
+    if "overfitting_gap" in ace_results and ace_results["overfitting_gap"]:
+        print(f"\n📈 ACE Overfitting Analysis:")
+        overfitting_gap = ace_results["overfitting_gap"]
+        for metric, gap in overfitting_gap.items():
+            if metric.endswith("_mean"):
+                base_metric = metric[:-5]
+                if gap > 0.05:
+                    print(f"  {base_metric.replace('_', ' ').title()}: {gap:.2%} ⚠️  (significant overfitting)")
+                elif gap > 0.02:
+                    print(f"  {base_metric.replace('_', ' ').title()}: {gap:.2%} ⚡ (minor overfitting)")
+                else:
+                    print(f"  {base_metric.replace('_', ' ').title()}: {gap:.2%} ✅ (good generalization)")
+
+    print("\n" + "="*80)
+
+    # Save comparison results
+    output_dir = Path(args.output)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    comparison_file = output_dir / f"comparison_{args.benchmark}_{args.model}_{timestamp}.json"
+
+    comparison_data = {
+        "benchmark": args.benchmark,
+        "model": args.model,
+        "prompt_version": args.prompt_version,
+        "timestamp": timestamp,
+        "evaluation_mode": "comparison",
+        "configuration": {
+            "split": args.split,
+            "epochs": args.epochs,
+            "temperature": args.temperature,
+            "max_tokens": args.max_tokens,
+            "split_ratio": args.split_ratio,
+            "online_mode": args.online_mode,
+            "prompt_version": args.prompt_version
+        },
+        "baseline_results": baseline_results,
+        "ace_results": ace_results,
+        "summary": {
+            "baseline_summary": baseline_summary,
+            "ace_test_summary": ace_summary,
+            "ace_train_summary": ace_results.get("train_summary", {}),
+            "overfitting_gap": ace_results.get("overfitting_gap", {})
+        }
+    }
+
+    with open(comparison_file, 'w') as f:
+        json.dump(comparison_data, f, indent=2, ensure_ascii=False)
+
+    print(f"💾 Comparison results saved to: {comparison_file}")
+    print(f"✅ Comparison completed successfully!")
+
+
+def create_ace_components(client: LiteLLMClient, prompt_version: str):
+    """Create ACE components with specified prompt version."""
+    if prompt_version == "v2":
+        try:
+            from ace.prompts_v2 import PromptManager
+            manager = PromptManager()
+            generator = Generator(client, prompt_template=manager.get_generator_prompt())
+            reflector = Reflector(client, prompt_template=manager.get_reflector_prompt())
+            curator = Curator(client, prompt_template=manager.get_curator_prompt())
+        except ImportError:
+            print("Warning: v2 prompts not available, falling back to v1")
+            generator = Generator(client)
+            reflector = Reflector(client)
+            curator = Curator(client)
+    else:
+        # Use default v1 prompts
+        generator = Generator(client)
+        reflector = Reflector(client)
+        curator = Curator(client)
+
+    return generator, reflector, curator
+
+
+def split_samples(samples: List[Sample], split_ratio: float):
+    """Split samples into train and test sets."""
+    if split_ratio >= 1.0:
+        return samples, []  # All training, no test
+
+    split_idx = int(len(samples) * split_ratio)
+    train_samples = samples[:split_idx]
+    test_samples = samples[split_idx:]
+
+    return train_samples, test_samples
+
+
 def run_evaluation(
     args: argparse.Namespace,
     samples: List[Sample],
     manager: BenchmarkTaskManager
 ) -> Dict[str, Any]:
-    """Run benchmark evaluation with ACE."""
+    """Run benchmark evaluation with ACE using proper train/test split."""
     if not args.quiet:
-        print(f"Starting evaluation with {args.model}...")
+        print(f"Starting evaluation with {args.model} (prompt: {args.prompt_version})...")
 
-    # Create LLM client and ACE components
+    # Create LLM client and ACE components with appropriate prompts
     client = create_llm_client(args)
-    generator = Generator(client)
+    generator, reflector, curator = create_ace_components(client, args.prompt_version)
     environment = manager.get_benchmark(args.benchmark)
 
     results = []
+    train_results = []
+    test_results = []
 
     if args.skip_adaptation:
-        # Direct evaluation without ACE adaptation
+        # Direct evaluation without ACE adaptation - use all samples as test
+        if not args.quiet:
+            print("🔬 Running BASELINE evaluation (no adaptation)")
+
         playbook = Playbook()
 
         for i, sample in enumerate(samples):
@@ -335,54 +503,161 @@ def run_evaluation(
                 "prediction": output.final_answer,
                 "ground_truth": sample.ground_truth,
                 "metrics": env_result.metrics,
-                "feedback": env_result.feedback
+                "feedback": env_result.feedback,
+                "split": "baseline"
             })
+
+        result_dict = {
+            "benchmark": args.benchmark,
+            "model": args.model,
+            "prompt_version": args.prompt_version,
+            "evaluation_mode": "baseline",
+            "samples_evaluated": len(results),
+            "results": results,
+            "summary": compute_summary_metrics(results)
+        }
 
     else:
-        # Full ACE adaptation
-        reflector = Reflector(client)
-        curator = Curator(client)
-        adapter = OfflineAdapter(
-            playbook=Playbook(),
-            generator=generator,
-            reflector=reflector,
-            curator=curator,
-            max_refinement_rounds=args.max_refinement_rounds,
-            enable_observability=True  # Enable observability tracking
-        )
+        # ACE adaptation with train/test split
+        train_samples, test_samples = split_samples(samples, args.split_ratio)
 
-        # Run adaptation
-        adaptation_results = adapter.run(samples, environment, epochs=args.epochs)
+        if not args.quiet:
+            print(f"📊 Train/test split: {len(train_samples)} train, {len(test_samples)} test (ratio: {args.split_ratio:.2f})")
 
-        # Convert to results format
-        for step_idx, step in enumerate(adaptation_results):
-            results.append({
-                "sample_id": f"{args.benchmark}_{step_idx:04d}",
-                "question": step.sample.question,
-                "prediction": step.generator_output.final_answer,
-                "ground_truth": step.sample.ground_truth,
-                "metrics": step.environment_result.metrics,
-                "feedback": step.environment_result.feedback,
-                "reflection": step.reflection.raw if hasattr(step.reflection, 'raw') else None,
-                "curator_output": step.curator_output.raw if hasattr(step.curator_output, 'raw') else None
-            })
+        if args.online_mode:
+            # Online learning mode - learn from each sample sequentially
+            if not args.quiet:
+                print("🔄 Running ONLINE LEARNING evaluation")
+
+            adapter = OnlineAdapter(
+                playbook=Playbook(),
+                generator=generator,
+                reflector=reflector,
+                curator=curator,
+                max_refinement_rounds=args.max_refinement_rounds,
+                enable_observability=True
+            )
+
+            # Process all samples sequentially (each is learned from then tested)
+            adaptation_results = adapter.run(samples, environment)
+
+            # Convert to results format
+            for step_idx, step in enumerate(adaptation_results):
+                results.append({
+                    "sample_id": f"{args.benchmark}_{step_idx:04d}",
+                    "question": step.sample.question,
+                    "prediction": step.generator_output.final_answer,
+                    "ground_truth": step.sample.ground_truth,
+                    "metrics": step.environment_result.metrics,
+                    "feedback": step.environment_result.feedback,
+                    "split": "online",
+                    "step": step_idx
+                })
+
+            result_dict = {
+                "benchmark": args.benchmark,
+                "model": args.model,
+                "prompt_version": args.prompt_version,
+                "evaluation_mode": "online",
+                "samples_evaluated": len(results),
+                "results": results,
+                "summary": compute_summary_metrics(results)
+            }
+
+        else:
+            # Offline learning with proper train/test split
+            if not args.quiet:
+                print(f"🧠 Running OFFLINE LEARNING evaluation ({args.epochs} epochs)")
+
+            adapter = OfflineAdapter(
+                playbook=Playbook(),
+                generator=generator,
+                reflector=reflector,
+                curator=curator,
+                max_refinement_rounds=args.max_refinement_rounds,
+                enable_observability=True
+            )
+
+            # Train on training samples
+            if len(train_samples) > 0:
+                if not args.quiet:
+                    print(f"📚 Training on {len(train_samples)} samples...")
+                adaptation_results = adapter.run(train_samples, environment, epochs=args.epochs)
+
+                # Store training results
+                for step_idx, step in enumerate(adaptation_results):
+                    train_results.append({
+                        "sample_id": f"{args.benchmark}_train_{step_idx:04d}",
+                        "question": step.sample.question,
+                        "prediction": step.generator_output.final_answer,
+                        "ground_truth": step.sample.ground_truth,
+                        "metrics": step.environment_result.metrics,
+                        "feedback": step.environment_result.feedback,
+                        "split": "train"
+                    })
+
+            # Test on unseen test samples using learned playbook
+            if len(test_samples) > 0:
+                if not args.quiet:
+                    print(f"🧪 Testing on {len(test_samples)} unseen samples...")
+
+                for i, sample in enumerate(test_samples):
+                    # Generate response with learned playbook
+                    output = generator.generate(
+                        question=sample.question,
+                        context=sample.context,
+                        playbook=adapter.playbook
+                    )
+
+                    # Evaluate
+                    env_result = environment.evaluate(sample, output)
+
+                    test_results.append({
+                        "sample_id": f"{args.benchmark}_test_{i:04d}",
+                        "question": sample.question,
+                        "prediction": output.final_answer,
+                        "ground_truth": sample.ground_truth,
+                        "metrics": env_result.metrics,
+                        "feedback": env_result.feedback,
+                        "split": "test"
+                    })
+
+            # Combine results
+            results = train_results + test_results
+
+            # Calculate overfitting gap
+            train_summary = compute_summary_metrics(train_results) if train_results else {}
+            test_summary = compute_summary_metrics(test_results) if test_results else {}
+
+            overfitting_gap = {}
+            for metric in train_summary:
+                if metric in test_summary:
+                    overfitting_gap[metric] = train_summary[metric] - test_summary[metric]
+
+            result_dict = {
+                "benchmark": args.benchmark,
+                "model": args.model,
+                "prompt_version": args.prompt_version,
+                "evaluation_mode": "offline_train_test_split",
+                "split_ratio": args.split_ratio,
+                "train_samples": len(train_samples),
+                "test_samples": len(test_samples),
+                "epochs": args.epochs,
+                "samples_evaluated": len(results),
+                "results": results,
+                "train_summary": train_summary,
+                "test_summary": test_summary,
+                "overfitting_gap": overfitting_gap,
+                "summary": test_summary  # Overall summary uses test performance (TRUE performance)
+            }
 
         # Export observability data if available
         observability_data = None
         if hasattr(adapter, 'observability_data'):
             observability_data = adapter.observability_data
 
-    result_dict = {
-        "benchmark": args.benchmark,
-        "model": args.model,
-        "samples_evaluated": len(results),
-        "results": results,
-        "summary": compute_summary_metrics(results)
-    }
-
-    # Add observability data if available
-    if 'observability_data' in locals() and observability_data:
-        result_dict["observability"] = observability_data
+        if observability_data:
+            result_dict["observability"] = observability_data
 
     return result_dict
 
@@ -431,7 +706,11 @@ def save_results(args: argparse.Namespace, evaluation_results: Dict[str, Any]) -
             "epochs": args.epochs,
             "temperature": args.temperature,
             "max_tokens": args.max_tokens,
-            "skip_adaptation": args.skip_adaptation
+            "skip_adaptation": args.skip_adaptation,
+            "split_ratio": args.split_ratio,
+            "online_mode": args.online_mode,
+            "prompt_version": args.prompt_version,
+            "evaluation_mode": evaluation_results.get("evaluation_mode", "unknown")
         }
     }
 
@@ -454,13 +733,47 @@ def save_results(args: argparse.Namespace, evaluation_results: Dict[str, Any]) -
     print("\n" + "="*60)
     print(f"Benchmark: {evaluation_results['benchmark']}")
     print(f"Model: {evaluation_results['model']}")
-    print(f"Samples: {evaluation_results['samples_evaluated']}")
+    print(f"Prompt Version: {evaluation_results.get('prompt_version', 'v1')}")
+    print(f"Evaluation Mode: {evaluation_results.get('evaluation_mode', 'unknown')}")
+
+    if "train_samples" in evaluation_results and "test_samples" in evaluation_results:
+        print(f"Train/Test Split: {evaluation_results['train_samples']}/{evaluation_results['test_samples']} (ratio: {evaluation_results.get('split_ratio', 0.8):.2f})")
+    else:
+        print(f"Samples: {evaluation_results['samples_evaluated']}")
     print("="*60)
 
-    for metric, value in evaluation_results["summary"].items():
-        if metric.endswith("_mean"):
-            base_metric = metric[:-5]
-            print(f"{base_metric.replace('_', ' ').title()}: {value:.2%}")
+    # Show test metrics (true performance) for train/test split
+    if "test_summary" in evaluation_results and evaluation_results["test_summary"]:
+        print("🧪 TEST PERFORMANCE (True Generalization):")
+        for metric, value in evaluation_results["test_summary"].items():
+            if metric.endswith("_mean"):
+                base_metric = metric[:-5]
+                print(f"  {base_metric.replace('_', ' ').title()}: {value:.2%}")
+
+        # Show overfitting gap if available
+        if "overfitting_gap" in evaluation_results and evaluation_results["overfitting_gap"]:
+            print("\n📈 OVERFITTING ANALYSIS:")
+            for metric, gap in evaluation_results["overfitting_gap"].items():
+                if metric.endswith("_mean"):
+                    base_metric = metric[:-5]
+                    if gap > 0.05:  # Significant overfitting
+                        print(f"  {base_metric.replace('_', ' ').title()} Gap: {gap:.2%} ⚠️  (overfitting)")
+                    else:
+                        print(f"  {base_metric.replace('_', ' ').title()} Gap: {gap:.2%} ✅")
+
+        # Show training performance for reference
+        if "train_summary" in evaluation_results and evaluation_results["train_summary"]:
+            print("\n📚 TRAIN PERFORMANCE (Reference):")
+            for metric, value in evaluation_results["train_summary"].items():
+                if metric.endswith("_mean"):
+                    base_metric = metric[:-5]
+                    print(f"  {base_metric.replace('_', ' ').title()}: {value:.2%}")
+    else:
+        # Fallback for baseline or online mode
+        for metric, value in evaluation_results["summary"].items():
+            if metric.endswith("_mean"):
+                base_metric = metric[:-5]
+                print(f"{base_metric.replace('_', ' ').title()}: {value:.2%}")
 
 
 def main() -> None:
@@ -500,11 +813,16 @@ def main() -> None:
     # Load benchmark data
     samples = load_benchmark_data(args, manager)
 
-    # Run evaluation
-    evaluation_results = run_evaluation(args, samples, manager)
+    # Check if running in comparison mode
+    if args.compare:
+        # Run comparison mode (baseline vs ACE)
+        run_comparison_mode(args, samples, manager)
+    else:
+        # Run normal evaluation
+        evaluation_results = run_evaluation(args, samples, manager)
 
-    # Save and display results
-    save_results(args, evaluation_results)
+        # Save and display results
+        save_results(args, evaluation_results)
 
     if not args.quiet:
         print(f"\nEvaluation completed successfully!")
