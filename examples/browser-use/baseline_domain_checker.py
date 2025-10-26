@@ -20,15 +20,15 @@ def get_test_domains() -> List[str]:
     """Get list of test domains to check."""
     return [
         "testdomain123456.com",
-        "myuniquedomain789.net",
-        "brandnewstartup2024.io",
-        "innovativetech555.org",
-        "creativesolutions999.co",
-        "digitalagency2024.biz",
-        "techstartup123.app",
-        "newcompany456.info",
-        "uniquebusiness789.online",
-        "moderntech2024.dev"
+        #"myuniquedomain789.net",
+        #"brandnewstartup2024.io",
+        #"innovativetech555.org",
+        #"creativesolutions999.co",
+        #"digitalagency2024.biz",
+        #"techstartup123.app",
+        #"newcompany456.info",
+        #"uniquebusiness789.online",
+        #"moderntech2024.dev"
     ]
 
 
@@ -38,6 +38,7 @@ async def check_domain(domain: str, model: str = "gpt-4o-mini", headless: bool =
     last_error = None
     total_steps = 0
     attempt_details = []
+
 
     for attempt in range(max_retries):
         browser = None
@@ -50,6 +51,7 @@ async def check_domain(domain: str, model: str = "gpt-4o-mini", headless: bool =
 
             # Create agent with basic task (no learning, no strategy optimization)
             llm = ChatOpenAI(model=model, temperature=0.0)
+
 
             task = f"""
 You are a domain availability checking agent. Check if the domain "{domain}" is available.
@@ -75,13 +77,13 @@ ERROR: <reason>"""
             # Run with timeout
             history = await asyncio.wait_for(agent.run(), timeout=180.0)
 
-            # Parse result
+            # Parse result (back to original working logic)
             output = history.final_result() if hasattr(history, "final_result") else ""
             steps = len(history.action_names()) if hasattr(history, "action_names") and history.action_names() else 0
 
-            # Add steps to total and track attempt
+            # Add steps to total
             total_steps += steps
-            attempt_details.append(f"attempt {attempt + 1}: {steps} steps")
+
 
             # Determine status
             status = "ERROR"
@@ -101,6 +103,9 @@ ERROR: <reason>"""
                 expected_status = "AVAILABLE"  # Test domains should be available
                 correct = (status == expected_status)
 
+                # Add successful attempt to details
+                attempt_details.append(f"attempt {attempt + 1}: {steps} steps")
+
                 return {
                     "domain": domain,
                     "status": status,
@@ -111,15 +116,17 @@ ERROR: <reason>"""
                     "correct": correct,  # Whether the result was accurate
                     "expected": expected_status,
                     "attempt": attempt + 1,
-                    "attempt_details": attempt_details
+                    "attempt_details": attempt_details,
+                    "tokens": 0,
+                    "cost": 0.0
                 }
 
             # Store error for potential retry
-            total_steps += steps
             attempt_details.append(f"attempt {attempt + 1}: {steps} steps")
             last_error = f"Failed to get valid result: {output}"
 
         except asyncio.TimeoutError:
+
             # Get actual steps completed before timeout
             try:
                 if history and hasattr(history, "number_of_steps"):
@@ -136,6 +143,7 @@ ERROR: <reason>"""
             last_error = f"Timeout on attempt {attempt + 1}"
 
         except Exception as e:
+
             # Get actual steps even on error
             try:
                 if history and hasattr(history, "number_of_steps"):
@@ -143,7 +151,7 @@ ERROR: <reason>"""
                 elif history and hasattr(history, "action_names") and history.action_names():
                     steps = len(history.action_names())
                 else:
-                    steps = 0  # Unknown steps for real errors
+                    steps = 0
             except:
                 steps = 0
 
@@ -169,7 +177,9 @@ ERROR: <reason>"""
         "correct": False,
         "expected": "AVAILABLE",
         "attempt": max_retries,
-        "attempt_details": attempt_details
+        "attempt_details": attempt_details,
+        "tokens": 0,
+        "cost": 0.0
     }
 
 
@@ -225,8 +235,8 @@ def main():
     print("\n" + "=" * 80)
     print("📊 RESULTS")
     print("=" * 80)
-    print(f"{'#':<3} {'Domain':<25} {'Status':<10} {'Acc':<4} {'Steps':<8} {'Details'}")
-    print("-" * 80)
+    print(f"{'#':<3} {'Domain':<25} {'Status':<10} {'Acc':<4} {'Steps':<8} {'Agent-Tokens':<12} {'Details'}")
+    print("-" * 92)
 
     for i, result in enumerate(results, 1):
         domain = result['domain']
@@ -245,8 +255,9 @@ def main():
 
         correct = result.get('correct', False)
         accuracy_indicator = '✓' if correct else '✗'
+        tokens = result.get('tokens', 0)
 
-        print(f"{i:<3} {domain:<25} {status:<10} {accuracy_indicator:<4} {total_steps:<8} {step_details}")
+        print(f"{i:<3} {domain:<25} {status:<10} {accuracy_indicator:<4} {total_steps:<8} {tokens:<12} {step_details}")
 
     # Enhanced Summary
     successful = sum(1 for r in results if r['success'])
@@ -258,15 +269,23 @@ def main():
     avg_steps_per_domain = total_steps / len(results) if results else 0
     avg_steps_per_success = total_steps / successful if successful > 0 else 0
 
+    # Token/cost placeholders (always 0)
+    total_domain_tokens = 0
+    total_domain_cost = 0.0
+    avg_tokens_per_domain = 0.0
+    avg_cost_per_domain = 0.0
+
     print("\n" + "=" * 80)
     print("📈 SUMMARY")
     print("=" * 80)
-    print(f"✅ Success rate:         {successful:>2}/{len(results)} ({100*successful/len(results):>5.1f}%)")
-    print(f"🎯 Accuracy rate:        {correct:>2}/{len(results)} ({100*correct/len(results):>5.1f}%)")
-    print(f"📊 Total steps:          {total_steps:>6} across all attempts")
-    print(f"📈 Avg steps/domain:     {avg_steps_per_domain:>6.1f}")
-    print(f"🔄 Domains w/ retries:   {domains_with_retries:>2}/{len(results)}")
-    print(f"🔢 Total attempts:       {total_attempts:>6}")
+    print(f"✅ Success rate:          {successful:>2}/{len(results)} ({100*successful/len(results):>5.1f}%)")
+    print(f"🎯 Accuracy rate:         {correct:>2}/{len(results)} ({100*correct/len(results):>5.1f}%)")
+    print(f"🔄 Domains w/ retries:    {domains_with_retries:>2}/{len(results)}")
+    print(f"🔢 Total attempts:        {total_attempts:>6}")
+    print()
+    print(f"{'📊 Steps:':<20} {total_steps:>6} total       {avg_steps_per_domain:>6.1f} per domain")
+    print(f"{'🤖 Agent-Tokens:':<20} {total_domain_tokens:>6} total     {avg_tokens_per_domain:>6.1f} per domain")
+    print(f"{'💰 Agent-Cost:':<20} ${total_domain_cost:>5.4f} total      ${avg_cost_per_domain:>5.4f} per domain")
     print("=" * 80)
 
 

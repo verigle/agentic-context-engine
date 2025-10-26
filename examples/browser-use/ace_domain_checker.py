@@ -74,6 +74,7 @@ class DomainCheckEnvironment(TaskEnvironment):
         else:
             feedback += f"Error: {result.get('error', 'Unknown error')}. "
 
+
         return EnvironmentResult(
             feedback=feedback,
             ground_truth=None,  # No ground truth available for domain checking
@@ -86,7 +87,11 @@ class DomainCheckEnvironment(TaskEnvironment):
                 "status": result['status'],
                 "expected": expected_status,
                 "attempt": result.get('attempt', 1),
-                "attempt_details": result.get('attempt_details', [])
+                "attempt_details": result.get('attempt_details', []),
+                "browseruse_tokens": 0,
+                "browseruse_cost": 0.0,
+                "ace_tokens": 0,
+                "ace_cost": 0.0
             }
         )
 
@@ -96,6 +101,7 @@ class DomainCheckEnvironment(TaskEnvironment):
         last_error = None
         total_steps = 0
         attempt_details = []
+
 
         for attempt in range(max_retries):
             print(f"   ⏳ Attempt {attempt + 1}/{max_retries}...")
@@ -161,7 +167,9 @@ ERROR: <reason>
                         "total_steps": total_steps,  # Cumulative steps
                         "output": output,
                         "attempt": attempt + 1,
-                        "attempt_details": attempt_details
+                        "attempt_details": attempt_details,
+                        "browseruse_tokens": 0,
+                        "browseruse_cost": 0.0
                     }
 
                 # Store error for potential retry
@@ -206,7 +214,9 @@ ERROR: <reason>
             "total_steps": total_steps,
             "error": f"Failed after {max_retries} attempts. Last error: {last_error}",
             "attempt": max_retries,
-            "attempt_details": attempt_details
+            "attempt_details": attempt_details,
+            "browseruse_tokens": 0,
+            "browseruse_cost": 0.0
         }
 
 
@@ -214,15 +224,15 @@ def get_test_domains() -> List[str]:
     """Get list of test domains to check."""
     return [
         "testdomain123456.com",
-        "myuniquedomain789.net",
-        "brandnewstartup2024.io",
-        "innovativetech555.org",
-        "creativesolutions999.co",
-        "digitalagency2024.biz",
-        "techstartup123.app",
-        "newcompany456.info",
-        "uniquebusiness789.online",
-        "moderntech2024.dev"
+        #"myuniquedomain789.net",
+        #"brandnewstartup2024.io",
+        #"innovativetech555.org",
+        #"creativesolutions999.co",
+        #"digitalagency2024.biz",
+        #"techstartup123.app",
+        #"newcompany456.info",
+        #"uniquebusiness789.online",
+        #"moderntech2024.dev"
     ]
 
 
@@ -285,8 +295,8 @@ def main():
     print("\n" + "=" * 80)
     print("📊 RESULTS")
     print("=" * 80)
-    print(f"{'#':<3} {'Domain':<25} {'Status':<10} {'Acc':<4} {'Steps':<8} {'Details'}")
-    print("-" * 80)
+    print(f"{'#':<3} {'Domain':<25} {'Status':<10} {'Acc':<4} {'Steps':<8} {'Agent-Tokens':<12} {'ACE-Tokens':<11} {'Details'}")
+    print("-" * 103)
 
     for i, (domain, result) in enumerate(zip(domains, results), 1):
         metrics = result.environment_result.metrics
@@ -304,8 +314,10 @@ def main():
             step_details = "(1 attempt)"
 
         accuracy_indicator = '✓' if correct else '✗'
+        browseruse_tokens = metrics.get('browseruse_tokens', 0)
+        ace_tokens = metrics.get('ace_tokens', 0)
 
-        print(f"{i:<3} {domain:<25} {status:<10} {accuracy_indicator:<4} {total_steps:<8} {step_details}")
+        print(f"{i:<3} {domain:<25} {status:<10} {accuracy_indicator:<4} {total_steps:<8} {browseruse_tokens:<12} {ace_tokens:<11} {step_details}")
 
     # Enhanced Summary
     status_successful = sum(1 for r in results if r.environment_result.metrics.get('status_success', False))
@@ -315,17 +327,30 @@ def main():
     total_attempts = sum(r.environment_result.metrics.get('attempt', 1) for r in results)
 
     avg_steps_per_domain = total_steps / len(results) if results else 0
-    avg_steps_per_correct = total_steps / correct if correct > 0 else 0
+
+    # Token/cost placeholders (always 0)
+    total_browseruse_tokens = 0
+    total_browseruse_cost = 0.0
+    total_ace_tokens = 0
+    total_ace_cost = 0.0
+    avg_browseruse_tokens_per_domain = 0.0
+    avg_browseruse_cost_per_domain = 0.0
+    avg_ace_tokens_per_domain = 0.0
+    avg_ace_cost_per_domain = 0.0
 
     print("\n" + "=" * 80)
     print("📈 SUMMARY")
     print("=" * 80)
-    print(f"✅ Success rate:         {status_successful:>2}/{len(results)} ({100*status_successful/len(results):>5.1f}%)")
-    print(f"🎯 Accuracy rate:        {correct:>2}/{len(results)} ({100*correct/len(results):>5.1f}%)")
-    print(f"📊 Total steps:          {total_steps:>6} across all attempts")
-    print(f"📈 Avg steps/domain:     {avg_steps_per_domain:>6.1f}")
-    print(f"🔄 Domains w/ retries:   {domains_with_retries:>2}/{len(results)}")
-    print(f"🔢 Total attempts:       {total_attempts:>6}")
+    print(f"✅ Success rate:          {status_successful:>2}/{len(results)} ({100*status_successful/len(results):>5.1f}%)")
+    print(f"🎯 Accuracy rate:         {correct:>2}/{len(results)} ({100*correct/len(results):>5.1f}%)")
+    print(f"🔄 Domains w/ retries:    {domains_with_retries:>2}/{len(results)}")
+    print(f"🔢 Total attempts:        {total_attempts:>6}")
+    print()
+    print(f"{'📊 Steps:':<20} {total_steps:>6} total     {avg_steps_per_domain:>6.1f} per domain")
+    print(f"{'🤖 Agent-Tokens:':<20} {total_browseruse_tokens:>6} total     {avg_browseruse_tokens_per_domain:>6.1f} per domain")
+    print(f"{'🧠 ACE-Tokens:':<20} {total_ace_tokens:>6} total     {avg_ace_tokens_per_domain:>6.1f} per domain")
+    print(f"{'💰 Agent-Cost:':<20} ${total_browseruse_cost:>5.4f} total      ${avg_browseruse_cost_per_domain:>5.4f} per domain")
+    print(f"{'🎯 ACE-Cost:':<20} ${total_ace_cost:>5.4f} total      ${avg_ace_cost_per_domain:>5.4f} per domain")
     print("=" * 80)
 
     # Show learned strategies
