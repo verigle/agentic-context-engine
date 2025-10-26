@@ -283,6 +283,7 @@ The benchmark system prevents overfitting with automatic 80/20 train/test splits
 - [Quick Start Guide](docs/QUICK_START.md) - Get running in 5 minutes
 - [API Reference](docs/API_REFERENCE.md) - Complete API documentation
 - [Examples](examples/) - Ready-to-run code examples
+- [ACE Framework Guide](docs/COMPLETE_GUIDE_TO_ACE.md) - Deep dive into Agentic Context Engineering
 - [Prompt Engineering](docs/PROMPT_ENGINEERING.md) - Advanced prompt techniques
 - [Changelog](CHANGELOG.md) - See recent changes
 
