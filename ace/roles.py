@@ -26,6 +26,13 @@ except ImportError:
 
 
 def _safe_json_loads(text: str) -> Dict[str, Any]:
+    # Strip markdown code blocks if present
+    text = text.strip()
+    if text.startswith("```json") and text.endswith("```"):
+        text = text[7:-3].strip()
+    elif text.startswith("```") and text.endswith("```"):
+        text = text[3:-3].strip()
+
     try:
         data = json.loads(text)
     except json.JSONDecodeError as exc:

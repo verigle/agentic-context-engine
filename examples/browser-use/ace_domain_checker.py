@@ -10,7 +10,7 @@ import asyncio
 from pathlib import Path
 from typing import List
 from dotenv import load_dotenv
-
+from ace.prompts_v2 import PromptManager
 from browser_use import Agent, Browser, ChatOpenAI
 
 from ace import (
@@ -32,7 +32,7 @@ load_dotenv()
 class DomainCheckEnvironment(TaskEnvironment):
     """Environment that evaluates domain checking performance."""
 
-    def __init__(self, headless: bool = True, model: str = "gpt-4o-mini"):
+    def __init__(self, headless: bool = True, model: str = "gpt-4o"):
         self.headless = headless
         self.model = model
 
@@ -52,12 +52,14 @@ class DomainCheckEnvironment(TaskEnvironment):
 
         # Evaluate correctness and efficiency
         correct = result['status'] != "ERROR"
-        efficient = result['steps'] <= 8
+        efficient = result['steps'] <= 8  # Simple threshold for feedback context
 
         feedback = f"Domain check {'succeeded' if correct else 'failed'}. "
         feedback += f"Took {result['steps']} steps. "
-        if not efficient:
-            feedback += "Should be more efficient (target: ≤8 steps). "
+        if correct and not efficient:
+            feedback += f"Analyze what made this attempt take more steps (target: ≤8 steps). "
+        elif correct:
+            feedback += f"Analyze what made this attempt efficient. "
         if result['status'] == "ERROR":
             feedback += f"Error: {result.get('error', 'Unknown error')}. "
 
@@ -93,16 +95,20 @@ class DomainCheckEnvironment(TaskEnvironment):
                 # Create agent with the strategy
                 llm = ChatOpenAI(model=self.model, temperature=0.0)
 
-                task = f"""{strategy}
+                task = f"""
+You are a domain availability checking agent. Check if the domain "{domain}" is available.
 
-Check if the domain "{domain}" is available for registration.
-
-Use domain lookup websites. Avoid sites with CAPTCHAs.
+  IMPORTANT: Do NOT navigate to {domain} directly. Instead:
+  1. Go to a domain checking website
+  2. In the search bar type "{domain}" on that website
+  3. Read the availability status from the results
 
 Output format (exactly one of these):
 AVAILABLE: {domain}
 TAKEN: {domain}
-ERROR: <reason>"""
+ERROR: <reason>
+
+{strategy}"""
 
                 agent = Agent(
                     task=task,
@@ -228,20 +234,23 @@ def main():
         print(f"  {i}. {domain}")
 
     # Create ACE components with OnlineAdapter
-    llm = LiteLLMClient(model="gpt-4o-mini", temperature=0.7)
+    llm = LiteLLMClient(model="gpt-4o", temperature=0.7)
+
+    # Create prompt manager
+    manager = PromptManager()
 
     adapter = OnlineAdapter(
         playbook=Playbook(),
-        generator=Generator(llm),
-        reflector=Reflector(llm),
-        curator=Curator(llm),
+        generator=Generator(llm, prompt_template=manager.get_generator_prompt()),
+        reflector=Reflector(llm, prompt_template=manager.get_reflector_prompt()),
+        curator=Curator(llm, prompt_template=manager.get_curator_prompt()),
         max_refinement_rounds=2,
     )
 
     # Create environment
     environment = DomainCheckEnvironment(
         headless=False,  # Change to True for headless mode
-        model="gpt-4o-mini"
+        model="gpt-4o"
     )
 
     print("\n🔄 Starting incremental ACE learning...\n")
@@ -279,7 +288,8 @@ def main():
         else:
             step_info += f" (1 attempt)"
 
-        print(f"[{i}] {domain}: {status} ({'✓' if correct else '✗'}) - {step_info}")
+        success_indicator = '✓' if correct else '✗'
+        print(f"[{i}] {domain}: {status} ({success_indicator}) - {step_info}")
 
     # Enhanced Summary
     successful = sum(1 for r in results if r.environment_result.metrics.get('correct', False))
@@ -291,7 +301,7 @@ def main():
     avg_steps_per_success = total_steps / successful if successful > 0 else 0
 
     print(f"\n✅ Success rate: {successful}/{len(results)} ({100*successful/len(results):.1f}%)")
-    print(f"⚡ Total steps: {total_steps} across all attempts")
+    print(f"📊 Total steps: {total_steps} across all attempts")
     print(f"📈 Average steps per domain: {avg_steps_per_domain:.1f}")
     print(f"🎯 Average steps per success: {avg_steps_per_success:.1f}")
     print(f"🔄 Domains needing retries: {domains_with_retries}/{len(results)}")

@@ -186,6 +186,38 @@ IF no applicable strategy existed:
    - Describe strategy that would help
    - Mark for curator to add
 
+## Experience-Driven Concrete Extraction
+
+**CRITICAL**: Base your analysis on the ACTUAL EXECUTION, not general principles:
+
+### From Environment Feedback, Extract:
+- **Specific Tools Used**: If feedback mentions "who.is", "timeout", "CAPTCHA" - use these exact terms
+- **Actual Steps Taken**: If feedback describes a sequence, extract the exact sequence
+- **Real Performance Metrics**: If feedback mentions "4 steps", "30 seconds" - use exact numbers
+- **Concrete Failure Points**: If something specific failed, identify the exact failure
+
+### Transform Observations to Learnings:
+- "succeeded using who.is in 4 steps" → "who.is is effective, completing in 4 steps"
+- "failed due to CAPTCHA on domain.com" → "avoid domain.com due to CAPTCHA issues"
+- "timeout after 30 seconds" → "implement 30-second timeout handling"
+
+**AVOID generalizations** like "use reliable services" - instead extract "use who.is" if that's what actually worked.
+
+## MANDATORY SPECIFICITY REQUIREMENTS
+
+Every analysis MUST extract from the actual execution:
+- EXACT tools/methods/resources mentioned in the feedback
+- PRECISE metrics (timing, step counts, scores) from the execution
+- SPECIFIC failure points, delays, or inefficiencies identified
+- CONCRETE actions taken (not "processed" but "clicked button X", "entered text Y")
+- ACTUAL error messages or success indicators encountered
+
+## Transform Vague Observations to Specific Learnings:
+- "tool was effective" → "Tool X completed task in N steps"
+- "approach had issues" → "Method Y failed at step Z due to specific error W"
+- "could be more efficient" → "Process took N extra steps because of specific action X"
+- "strategy worked well" → "Technique Y achieved metric Z faster than baseline"
+
 ## Tagging Criteria
 
 ### Tag as "helpful" when:
@@ -321,6 +353,29 @@ IF strategy proved particularly effective:
    → TAG as helpful with increased weight
    → Consider creating variant for edge cases
 
+## Experience-Based Strategy Creation
+
+**CRITICAL**: Create strategies from what ACTUALLY happened in this execution:
+
+### Extract Concrete Details from Reflection:
+- **Specific Tools**: If reflection mentions "who.is worked", create strategy using "who.is" specifically
+- **Exact Steps**: If reflection describes actual navigation, encode those exact steps
+- **Real Metrics**: If reflection notes "4 steps" or "30 seconds", include these specific benchmarks
+- **Actual Failures**: If reflection identifies specific problems, create strategies avoiding those exact issues
+
+### Ask These Questions:
+1. What SPECIFIC tool/method was actually used in this execution?
+2. What EXACT steps were taken that led to success or failure?
+3. What CONCRETE advice would prevent this specific failure?
+4. What MEASURABLE improvement can be captured from this experience?
+
+### Transform Experience to Strategy:
+- Reflection: "who.is completed check in 4 steps" → Strategy: "Use who.is for domain checks - navigate to search box, enter domain, read result (typically 4 steps)"
+- Reflection: "failed due to CAPTCHA on domain.com" → Strategy: "Avoid domain.com for domain checking - frequently shows CAPTCHA"
+- Reflection: "timeout occurred after 30 seconds" → Strategy: "Set 30-second timeout for domain lookups"
+
+**NEVER create generic strategies** - always base on the specific execution details provided.
+
 ## Operation Guidelines
 
 ### ADD Operations - Use when:
@@ -332,7 +387,9 @@ IF strategy proved particularly effective:
 - MUST be genuinely novel (not paraphrase of existing)
 - MUST include concrete example or procedure
 - MUST be actionable and specific
-- NEVER add vague principles
+- MUST be based on actual execution details from this reflection
+- NEVER add vague principles like "use reliable tools" or "implement proper error handling"
+- ALWAYS specify exact tools, steps, or methods mentioned in the reflection
 
 **Good ADD Example:**
 {{
@@ -361,6 +418,8 @@ IF strategy proved particularly effective:
 ### TAG Operations - Use when:
 - Reflection provides evidence of effectiveness
 - Need to adjust helpful/harmful weights
+
+**CRITICAL**: Only use these exact tags: "helpful", "harmful", "neutral" - no other tags are supported
 
 ### REMOVE Operations - Use when:
 - Strategy consistently causes errors
@@ -404,7 +463,7 @@ Return ONLY a valid JSON object:
       "metadata": {{
         "helpful": <count>,
         "harmful": <count>,
-        "confidence": 0.85
+        "neutral": 0
       }},
       "justification": "<why this operation improves the playbook>"
     }}
@@ -418,7 +477,7 @@ Return ONLY a valid JSON object:
   "type": "ADD",
   "section": "algebra",
   "content": "When solving quadratic equations ax²+bx+c=0: First try factoring. If integer factors don't work, use quadratic formula x = (-b ± √(b²-4ac))/2a. Example: x²-5x+6=0 factors to (x-2)(x-3)=0, so x=2 or x=3",
-  "metadata": {{"helpful": 1, "harmful": 0, "confidence": 0.95}},
+  "metadata": {{"helpful": 1, "harmful": 0, "neutral": 0}},
   "justification": "Provides complete methodology with decision criteria and example"
 }}
 
@@ -428,7 +487,7 @@ Return ONLY a valid JSON object:
   "bullet_id": "bullet_045",
   "section": "geometry",
   "content": "Pythagorean theorem a²+b²=c² applies to right triangles only. For non-right triangles, use law of cosines: c² = a²+b²-2ab·cos(C). Check for right angle (90°) before applying Pythagorean theorem",
-  "metadata": {{"helpful": 3, "harmful": 0, "confidence": 0.90}},
+  "metadata": {{"helpful": 3, "harmful": 0, "neutral": 0}},
   "justification": "Added crucial constraint about right triangles and alternative for non-right triangles"
 }}
 
@@ -786,7 +845,7 @@ def validate_prompt_output(output: str, role: str) -> tuple[bool, list[str]]:
 
         for tag in data.get("bullet_tags", []):
             if tag.get("tag") not in ["helpful", "harmful", "neutral"]:
-                errors.append(f"Invalid tag: {tag.get('tag')}")
+                errors.append(f"Invalid tag: {tag.get('tag')} - only 'helpful', 'harmful', 'neutral' allowed")
 
     elif role == "curator":
         required = ["reasoning", "operations"]
