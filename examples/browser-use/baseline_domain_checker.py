@@ -15,68 +15,6 @@ from browser_use import Agent, Browser, ChatOpenAI
 
 load_dotenv()
 
-# Set up Opik tracking for OpenAI if available
-try:
-    from opik.integrations.openai import track_openai
-    from openai import OpenAI
-
-    # Enable Opik tracking for OpenAI calls
-    openai_client = OpenAI()
-    openai_client = track_openai(openai_client)
-    OPIK_AVAILABLE = True
-except ImportError:
-    OPIK_AVAILABLE = False
-
-
-def _get_token_usage_from_opik() -> tuple[int, float]:
-    """Query Opik for token usage and costs from recent traces.
-
-    Since baseline doesn't use ACE framework, we need to track tokens differently.
-
-    Returns:
-        tuple: (total_tokens, total_cost)
-    """
-    try:
-        import opik
-
-        # Create client and flush to ensure data is sent
-        client = opik.Opik()
-        client.flush()
-
-        # Get recent traces (last few minutes)
-        import datetime
-        now = datetime.datetime.now(datetime.timezone.utc)
-        recent_time = (now - datetime.timedelta(minutes=5)).isoformat()
-
-        traces = client.search_traces(
-            project_name="Default project",  # Baseline uses default project
-            filter_string=f'start_time >= "{recent_time}"',
-            max_results=10
-        )
-
-        total_tokens = 0
-        total_cost = 0.0
-
-        for trace in traces:
-            # Get spans for this trace
-            spans = client.search_spans(
-                project_name="Default project",
-                trace_id=trace.id
-            )
-
-            for span in spans:
-                if hasattr(span, 'usage') and span.usage:
-                    total_tokens += span.usage.get('total_tokens', 0)
-
-                    # Get Opik's calculated cost for this span
-                    estimated_cost = getattr(span, 'total_estimated_cost', None) or 0.0
-                    total_cost += estimated_cost
-
-        return total_tokens, total_cost
-
-    except Exception as e:
-        print(f"   Warning: Could not retrieve token usage from Opik: {e}")
-        return 0, 0.0
 
 
 def get_test_domains() -> List[str]:
@@ -102,21 +40,22 @@ async def check_domain(domain: str, model: str = "gpt-4o-mini", headless: bool =
     total_steps = 0
     attempt_details = []
 
-    # Set up Opik tracking for token usage
-    tokens_before, cost_before = _get_token_usage_from_opik()
+    # Track browser-use tokens across all attempts
+    total_browseruse_tokens = 0
 
 
     for attempt in range(max_retries):
         browser = None
-        steps = 0  # Initialize steps for this attempt
+        agent = None  # Initialize agent for this attempt
         history = None  # Initialize history for this attempt
+        steps = 0  # Initialize steps for this attempt
         try:
             # Start browser
             browser = Browser(headless=headless)
             await browser.start()
 
             # Create agent with basic task (no learning, no strategy optimization)
-            llm = ChatOpenAI(model=model, temperature=0.0, stream_usage=True)
+            llm = ChatOpenAI(model=model, temperature=0.0)
 
 
             task = f"""
@@ -138,10 +77,11 @@ ERROR: <reason>"""
                 browser=browser,
                 max_actions_per_step=5,
                 max_steps=20,
+                calculate_cost=True  # Enable cost tracking
             )
 
             # Run with timeout
-            history = await asyncio.wait_for(agent.run(), timeout=180.0)
+            history = await asyncio.wait_for(agent.run(), timeout=20.0)
 
             # Parse result (back to original working logic)
             output = history.final_result() if hasattr(history, "final_result") else ""
@@ -172,11 +112,6 @@ ERROR: <reason>"""
                 # Add successful attempt to details
                 attempt_details.append(f"attempt {attempt + 1}: {steps} steps")
 
-                # Calculate token usage and cost using Opik's data
-                tokens_after, cost_after = _get_token_usage_from_opik()
-                tokens_used = max(0, tokens_after - tokens_before)  # Ensure non-negative
-                cost = max(0.0, cost_after - cost_before)  # Ensure non-negative
-
                 return {
                     "domain": domain,
                     "status": status,
@@ -188,8 +123,7 @@ ERROR: <reason>"""
                     "expected": expected_status,
                     "attempt": attempt + 1,
                     "attempt_details": attempt_details,
-                    "tokens": tokens_used,
-                    "cost": cost
+                    "browseruse_tokens": total_browseruse_tokens
                 }
 
             # Store error for potential retry
@@ -229,19 +163,52 @@ ERROR: <reason>"""
             total_steps += steps
             attempt_details.append(f"attempt {attempt + 1}: {steps} steps (error)")
             last_error = f"Error on attempt {attempt + 1}: {str(e)}"
+            print(f"   💥 Error ({steps} steps): {str(e)}")
 
         finally:
+            # Capture tokens from this attempt using browser-use's cost tracking
+            attempt_tokens = 0
+
+            # Method 1: Try to get tokens from history (works after successful completion)
+            if 'history' in locals() and history and hasattr(history, "usage"):
+                try:
+                    usage = history.usage
+                    if usage:
+                        # Try different ways to extract total tokens
+                        if hasattr(usage, 'total_tokens'):
+                            attempt_tokens = usage.total_tokens
+                        elif isinstance(usage, dict) and 'total_tokens' in usage:
+                            attempt_tokens = usage['total_tokens']
+                        elif hasattr(usage, 'input_tokens') and hasattr(usage, 'output_tokens'):
+                            attempt_tokens = usage.input_tokens + usage.output_tokens
+                        elif isinstance(usage, dict) and 'input_tokens' in usage and 'output_tokens' in usage:
+                            attempt_tokens = usage['input_tokens'] + usage['output_tokens']
+                except Exception as e:
+                    print(f"   ⚠️ Could not get tokens from history: {e}")
+
+            # Method 2: Try agent.token_cost_service (works even during partial execution)
+            if attempt_tokens == 0 and 'agent' in locals() and agent:
+                try:
+                    if hasattr(agent, 'token_cost_service'):
+                        usage_summary = await agent.token_cost_service.get_usage_summary()
+                        if usage_summary:
+                            if isinstance(usage_summary, dict) and 'total_tokens' in usage_summary:
+                                attempt_tokens = usage_summary['total_tokens']
+                            elif hasattr(usage_summary, 'total_tokens'):
+                                attempt_tokens = usage_summary.total_tokens
+                except Exception as e:
+                    print(f"   ⚠️ Could not get tokens from agent service: {e}")
+
+            total_browseruse_tokens += attempt_tokens
+            print(f"   🤖 Attempt {attempt + 1} tokens: {attempt_tokens} (total: {total_browseruse_tokens})")
+
             if browser:
                 try:
                     await browser.stop()
                 except:
                     pass
 
-    # All retries failed - calculate token usage even for failures
-    tokens_after, cost_after = _get_token_usage_from_opik()
-    tokens_used = max(0, tokens_after - tokens_before)  # Ensure non-negative
-    cost = max(0.0, cost_after - cost_before)  # Ensure non-negative
-
+    # All retries failed - use accumulated tokens from all attempts
     return {
         "domain": domain,
         "status": "ERROR",
@@ -253,8 +220,7 @@ ERROR: <reason>"""
         "expected": "AVAILABLE",
         "attempt": max_retries,
         "attempt_details": attempt_details,
-        "tokens": tokens_used,
-        "cost": cost
+        "browseruse_tokens": total_browseruse_tokens
     }
 
 
@@ -280,7 +246,7 @@ def main():
         print(f"🔍 [{i}/{len(domains)}] Checking domain: {domain}")
 
         # Run check
-        result = asyncio.run(check_domain(domain, headless=False))
+        result = asyncio.run(check_domain(domain, headless=True))
         results.append(result)
 
         # Show what happened
@@ -310,8 +276,8 @@ def main():
     print("\n" + "=" * 80)
     print("📊 RESULTS")
     print("=" * 80)
-    print(f"{'#':<3} {'Domain':<25} {'Status':<10} {'Acc':<4} {'Steps':<8} {'Agent-Tokens':<12} {'Details'}")
-    print("-" * 92)
+    print(f"{'#':<3} {'Domain':<25} {'Status':<10} {'Acc':<4} {'Steps':<8} {'Browser-Tokens':<13} {'Details'}")
+    print("-" * 93)
 
     for i, result in enumerate(results, 1):
         domain = result['domain']
@@ -330,9 +296,9 @@ def main():
 
         correct = result.get('correct', False)
         accuracy_indicator = '✓' if correct else '✗'
-        tokens = result.get('tokens', 0)
+        browseruse_tokens = result.get('browseruse_tokens', 0)
 
-        print(f"{i:<3} {domain:<25} {status:<10} {accuracy_indicator:<4} {total_steps:<8} {tokens:<12} {step_details}")
+        print(f"{i:<3} {domain:<25} {status:<10} {accuracy_indicator:<4} {total_steps:<8} {browseruse_tokens:<12} {step_details}")
 
     # Enhanced Summary
     successful = sum(1 for r in results if r['success'])
@@ -344,11 +310,9 @@ def main():
     avg_steps_per_domain = total_steps / len(results) if results else 0
     avg_steps_per_success = total_steps / successful if successful > 0 else 0
 
-    # Token/cost placeholders (always 0)
-    total_domain_tokens = 0
-    total_domain_cost = 0.0
-    avg_tokens_per_domain = 0.0
-    avg_cost_per_domain = 0.0
+    # Calculate actual browser-use token usage
+    total_browseruse_tokens = sum(r.get('browseruse_tokens', 0) for r in results)
+    avg_browseruse_tokens_per_domain = total_browseruse_tokens / len(results) if results else 0.0
 
     print("\n" + "=" * 80)
     print("📈 SUMMARY")
@@ -358,9 +322,8 @@ def main():
     print(f"🔄 Domains w/ retries:    {domains_with_retries:>2}/{len(results)}")
     print(f"🔢 Total attempts:        {total_attempts:>6}")
     print()
-    print(f"{'📊 Steps:':<20} {total_steps:>6} total       {avg_steps_per_domain:>6.1f} per domain")
-    print(f"{'🤖 Agent-Tokens:':<20} {total_domain_tokens:>6} total     {avg_tokens_per_domain:>6.1f} per domain")
-    print(f"{'💰 Agent-Cost:':<20} ${total_domain_cost:>5.4f} total      ${avg_cost_per_domain:>5.4f} per domain")
+    print(f"{'📊 Steps:':<25} {total_steps:>6} total     {avg_steps_per_domain:>6.1f} per domain")
+    print(f"{'🤖 Browser-Use Tokens:':<25} {total_browseruse_tokens:>6} total     {avg_browseruse_tokens_per_domain:>6.1f} per domain")
     print("=" * 80)
 
 
