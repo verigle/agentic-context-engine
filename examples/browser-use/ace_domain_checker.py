@@ -17,6 +17,12 @@ load_dotenv()
 from ace.prompts_v2 import PromptManager
 from browser_use import Agent, Browser, ChatOpenAI
 
+
+def calculate_timeout_steps(timeout_seconds: float) -> int:
+    """Calculate additional steps for timeout based on 1 step per 12 seconds."""
+    return int(timeout_seconds // 12)
+
+
 from ace import (
     LiteLLMClient,
     Generator,
@@ -284,7 +290,7 @@ ERROR: <reason>
                     calculate_cost=True  # Enable cost tracking
                 )
 
-                print(f"   🚀 Running agent (timeout: 20s)...")
+                print(f"   🚀 Running agent (timeout: 180s)...")
                 # Run with reasonable timeout to allow LLM calls to complete
                 history = await asyncio.wait_for(agent.run(), timeout=180.0)
                 print(f"   📋 Agent completed, processing results...")
@@ -325,15 +331,21 @@ ERROR: <reason>
                 last_error = f"Failed to get valid result: {output}"
 
             except asyncio.TimeoutError:
+                # Calculate additional steps for timeout duration
+                timeout_duration = 180.0  # The timeout value used in wait_for()
+                timeout_steps = calculate_timeout_steps(timeout_duration)
+
                 # Get actual steps even on timeout
                 try:
-                    steps = history.number_of_steps() if 'history' in locals() and hasattr(history, "number_of_steps") else 0
+                    actual_steps = history.number_of_steps() if 'history' in locals() and hasattr(history, "number_of_steps") else 0
                 except:
-                    steps = 20  # max_steps if we can't determine
+                    actual_steps = 0
 
+                # Add timeout steps to actual steps
+                steps = actual_steps + timeout_steps
                 total_steps += steps
-                attempt_details.append(f"attempt {attempt + 1}: {steps} steps (timeout)")
-                print(f"   ⏱️ Timeout ({steps} steps) - retrying...")
+                attempt_details.append(f"attempt {attempt + 1}: {steps} steps (timeout, +{timeout_steps} for duration)")
+                print(f"   ⏱️ Timeout ({steps} steps, +{timeout_steps} for duration) - retrying...")
                 last_error = f"Timeout on attempt {attempt + 1}"
 
             except Exception as e:

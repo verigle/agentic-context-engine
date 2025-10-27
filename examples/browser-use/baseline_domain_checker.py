@@ -16,6 +16,10 @@ load_dotenv()
 from browser_use import Agent, Browser, ChatOpenAI
 
 
+def calculate_timeout_steps(timeout_seconds: float) -> int:
+    """Calculate additional steps for timeout based on 1 step per 12 seconds."""
+    return int(timeout_seconds // 12)
+
 
 def get_test_domains() -> List[str]:
     """Get list of test domains to check."""
@@ -127,20 +131,25 @@ ERROR: <reason>"""
             last_error = f"Failed to get valid result: {output}"
 
         except asyncio.TimeoutError:
+            # Calculate additional steps for timeout duration
+            timeout_duration = 180.0  # The timeout value used in wait_for()
+            timeout_steps = calculate_timeout_steps(timeout_duration)
 
             # Get actual steps completed before timeout
             try:
                 if history and hasattr(history, "number_of_steps"):
-                    steps = history.number_of_steps()
+                    actual_steps = history.number_of_steps()
                 elif history and hasattr(history, "action_names") and history.action_names():
-                    steps = len(history.action_names())
+                    actual_steps = len(history.action_names())
                 else:
-                    steps = 0  # Unknown - don't make up numbers
+                    actual_steps = 0  # Unknown - don't make up numbers
             except:
-                steps = 0  # Can't determine actual steps
+                actual_steps = 0  # Can't determine actual steps
 
+            # Add timeout steps to actual steps
+            steps = actual_steps + timeout_steps
             total_steps += steps
-            attempt_details.append(f"attempt {attempt + 1}: {steps} steps (timeout)")
+            attempt_details.append(f"attempt {attempt + 1}: {steps} steps (timeout, +{timeout_steps} for duration)")
             last_error = f"Timeout on attempt {attempt + 1}"
 
         except Exception as e:
