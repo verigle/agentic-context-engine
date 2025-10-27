@@ -191,17 +191,17 @@ IF no applicable strategy existed:
 **CRITICAL**: Base your analysis on the ACTUAL EXECUTION, not general principles:
 
 ### From Environment Feedback, Extract:
-- **Specific Tools Used**: If feedback mentions "who.is", "timeout", "CAPTCHA" - use these exact terms
+- **Specific Tools Used**: If feedback mentions specific tools, "timeout", "rate_limit" - use these exact terms
 - **Actual Steps Taken**: If feedback describes a sequence, extract the exact sequence
 - **Real Performance Metrics**: If feedback mentions "4 steps", "30 seconds" - use exact numbers
 - **Concrete Failure Points**: If something specific failed, identify the exact failure
 
 ### Transform Observations to Learnings:
-- "succeeded using who.is in 4 steps" → "who.is is effective, completing in 4 steps"
-- "failed due to CAPTCHA on domain.com" → "avoid domain.com due to CAPTCHA issues"
+- "succeeded using tool in 4 steps" → "tool is effective, completing in 4 steps"
+- "failed due to rate limit on Service X" → "avoid Service X due to rate limiting"
 - "timeout after 30 seconds" → "implement 30-second timeout handling"
 
-**AVOID generalizations** like "use reliable services" - instead extract "use who.is" if that's what actually worked.
+**AVOID generalizations** like "use reliable services" - instead extract "use tool" if that's what actually worked.
 
 ## MANDATORY SPECIFICITY REQUIREMENTS
 
@@ -209,7 +209,7 @@ Every analysis MUST extract from the actual execution:
 - EXACT tools/methods/resources mentioned in the feedback
 - PRECISE metrics (timing, step counts, scores) from the execution
 - SPECIFIC failure points, delays, or inefficiencies identified
-- CONCRETE actions taken (not "processed" but "clicked button X", "entered text Y")
+- CONCRETE actions taken (not "processed" but "called function X", "passed parameter Y")
 - ACTUAL error messages or success indicators encountered
 
 ## Transform Vague Observations to Specific Learnings:
@@ -358,7 +358,7 @@ IF strategy proved particularly effective:
 **CRITICAL**: Create strategies from what ACTUALLY happened in this execution:
 
 ### Extract Concrete Details from Reflection:
-- **Specific Tools**: If reflection mentions "who.is worked", create strategy using "who.is" specifically
+- **Specific Tools**: If reflection mentions specific tols, create strategy using tools specifically
 - **Exact Steps**: If reflection describes actual navigation, encode those exact steps
 - **Real Metrics**: If reflection notes "4 steps" or "30 seconds", include these specific benchmarks
 - **Actual Failures**: If reflection identifies specific problems, create strategies avoiding those exact issues
@@ -370,9 +370,28 @@ IF strategy proved particularly effective:
 4. What MEASURABLE improvement can be captured from this experience?
 
 ### Transform Experience to Strategy:
-- Reflection: "who.is completed check in 4 steps" → Strategy: "Use who.is for domain checks - navigate to search box, enter domain, read result (typically 4 steps)"
-- Reflection: "failed due to CAPTCHA on domain.com" → Strategy: "Avoid domain.com for domain checking - frequently shows CAPTCHA"
-- Reflection: "timeout occurred after 30 seconds" → Strategy: "Set 30-second timeout for domain lookups"
+ Single Reflection → Multiple Focused Bullets:
+
+  - Reflection: "Tool X completed task in N steps" →
+    - Strategy 1: "Use Tool X for task type Y - provides reliable results"
+    - Strategy 2: "Expect Tool X operations to complete in approximately N steps"
+  - Reflection: "failed due to Error Z when using Service A" →
+    - Strategy 1: "Avoid Service A for task type Y - frequently causes Error Z"
+    - Strategy 2: "When encountering Error Z, switch to alternative approach"
+  - Reflection: "timeout occurred after N seconds using Method B" →
+    - Strategy 1: "Set N-second timeout when using Method B"
+    - Strategy 2: "Method B operations typically require N+ seconds to complete"
+  - Reflection: "succeeded by navigating to Interface X, clicking Button Y, entering Value Z" →
+    - Strategy 1: "Navigate to Interface X for task type"
+    - Strategy 2: "Click Button Y to initiate primary action"
+    - Strategy 3: "Enter Value Z in the designated field"
+
+  Key Pattern: Break each reflection into its component learnings
+  - What tool/method worked → Tool selection bullet
+  - How it was used → Implementation bullet
+  - What to avoid → Avoidance bullet
+  - Performance metrics → Timing/expectation bullet
+  - Error patterns → Error handling bullet
 
 **NEVER create generic strategies** - always base on the specific execution details provided.
 
@@ -393,16 +412,31 @@ IF strategy proved particularly effective:
 
 **Good ADD Example:**
 {{
-  "type": "ADD",
-  "section": "multiplication",
-  "content": "For two-digit multiplication (e.g., 23 × 45): Use area model - break into (20+3) × (40+5), compute four products, then sum",
-  "metadata": {{"helpful": 1, "harmful": 0}}
+  "reasoning": "Adding a specific multiplication technique that provides clear step-by-step guidance for two-digit problems using the area model method",
+  "operations": [
+    {{
+      "type": "ADD",
+      "section": "multiplication",
+      "content": "For two-digit multiplication (e.g., 23 × 45): Use area model - break into (20+3) × (40+5), compute four products, then sum",
+      "bullet_id": "",
+      "metadata": {{"helpful": 1, "harmful": 0}}
+    }}
+  ]
 }}
 
 **Bad ADD Example (DO NOT DO):**
+Respond with JSON:
 {{
-  "type": "ADD",
-  "content": "Be careful with calculations"  // Too vague
+  "reasoning": "Content is too vague and lacks specific, actionable guidance",
+  "operations": [
+    {{
+      "type": "ADD",
+      "section": "",
+      "content": "Be careful with calculations",
+      "bullet_id": "",
+      "metadata": {{"helpful": 0, "harmful": 0}}
+    }}
+  ]
 }}
 
 ### UPDATE Operations - Use when:
@@ -460,11 +494,7 @@ Return ONLY a valid JSON object:
       "section": "<category like 'algebra', 'geometry', 'problem_solving'>",
       "content": "<specific, actionable strategy with example>",
       "bullet_id": "<required for UPDATE/TAG/REMOVE>",
-      "metadata": {{
-        "helpful": <count>,
-        "harmful": <count>,
-        "neutral": 0
-      }},
+      "metadata": {{"helpful": 1, "harmful": 0}},
       "justification": "<why this operation improves the playbook>"
     }}
   ]
@@ -474,21 +504,30 @@ Return ONLY a valid JSON object:
 
 ### High-Quality ADD:
 {{
-  "type": "ADD",
-  "section": "algebra",
-  "content": "When solving quadratic equations ax²+bx+c=0: First try factoring. If integer factors don't work, use quadratic formula x = (-b ± √(b²-4ac))/2a. Example: x²-5x+6=0 factors to (x-2)(x-3)=0, so x=2 or x=3",
-  "metadata": {{"helpful": 1, "harmful": 0, "neutral": 0}},
-  "justification": "Provides complete methodology with decision criteria and example"
+  "reasoning": "Provides complete methodology with decision criteria and example for solving quadratic equations",
+  "operations": [
+    {{
+      "type": "ADD",
+      "section": "algebra",
+      "content": "When solving quadratic equations ax²+bx+c=0: First try factoring. If integer factors don't work, use quadratic formula x = (-b ± √(b²-4ac))/2a. Example: x²-5x+6=0 factors to (x-2)(x-3)=0, so x=2 or x=3",
+      "bullet_id": "",
+      "metadata": {{"helpful": 1, "harmful": 0}}
+    }}
+  ]
 }}
 
 ### Effective UPDATE:
 {{
-  "type": "UPDATE",
-  "bullet_id": "bullet_045",
-  "section": "geometry",
-  "content": "Pythagorean theorem a²+b²=c² applies to right triangles only. For non-right triangles, use law of cosines: c² = a²+b²-2ab·cos(C). Check for right angle (90°) before applying Pythagorean theorem",
-  "metadata": {{"helpful": 3, "harmful": 0, "neutral": 0}},
-  "justification": "Added crucial constraint about right triangles and alternative for non-right triangles"
+  "reasoning": "Added crucial constraint about right triangles and alternative for non-right triangles to prevent misapplication of Pythagorean theorem",
+  "operations": [
+    {{
+      "type": "UPDATE",
+      "section": "geometry",
+      "content": "Pythagorean theorem a²+b²=c² applies to right triangles only. For non-right triangles, use law of cosines: c² = a²+b²-2ab·cos(C). Check for right angle (90°) before applying Pythagorean theorem",
+      "bullet_id": "bullet_045",
+      "metadata": {{"helpful": 1, "harmful": 0}}
+    }}
+  ]
 }}
 
 ## Playbook Size Management
@@ -923,3 +962,4 @@ custom_prompt = GENERATOR_V2_PROMPT.replace(
 - Validate outputs with the provided validation utilities
 - Consider A/B testing v1 vs v2 for your use case
 """
+
