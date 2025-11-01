@@ -93,5 +93,18 @@ appworld_data/
 *.parquet
 huggingface_cache/
 
+# Rust build files
+target/
+**/target/
+.cargo/
+Cargo.lock
+*.rlib
+*.dSYM
+*.exe
+*.dll
+*.so
+*.dylib
+pkg/
+
 # Sensitive/private data (NEVER commit!)
 .private/
