@@ -83,7 +83,7 @@
     "performance-00009": {
       "id": "performance-00009",
       "section": "Performance Optimization",
-      "content": "[performance-00009] Avoid O(n²) complexity from membership testing in loops: 'if item not in list' inside a loop performs O(n) scan per iteration. Solution: use set for O(1) lookups. Pattern: (1) identify repeated membership checks, (2) convert to set (unique = set() or seen = set()), (3) use set.add() instead of list.append(). Provide concrete impact: for n=7, list approach does 1+2+3+4+5+6+7=28 comparisons vs 7 set operations. State violated principle: 'inefficient data structure choice for membership testing'.",
+      "content": "[performance-00009] Avoid O(n\u00b2) complexity from membership testing in loops: 'if item not in list' inside a loop performs O(n) scan per iteration. Solution: use set for O(1) lookups. Pattern: (1) identify repeated membership checks, (2) convert to set (unique = set() or seen = set()), (3) use set.add() instead of list.append(). Provide concrete impact: for n=7, list approach does 1+2+3+4+5+6+7=28 comparisons vs 7 set operations. State violated principle: 'inefficient data structure choice for membership testing'.",
       "helpful": 1,
       "harmful": 0,
       "neutral": 0,
@@ -109,6 +109,46 @@
       "neutral": 0,
       "created_at": "2025-11-01T22:25:47.816446+00:00",
       "updated_at": "2025-11-01T22:25:47.816464+00:00"
+    },
+    "missing-case-00011": {
+      "id": "missing-case-00011",
+      "section": "Missing Case Handling",
+      "content": "[CRITICAL] When if-elif chains don't have else clause, zero/neutral values are silently dropped. Pattern: if x > 0... elif x < 0... missing else for x == 0. Fix: Add else clause or document intentional exclusion. Check: Does every value path return/append? Example: process_items([1,-2,0]) silently drops 0. Impact: Data loss, silent failures.",
+      "helpful": 10,
+      "harmful": 0,
+      "neutral": 0,
+      "created_at": "2025-11-01T23:00:00.000000+00:00",
+      "updated_at": "2025-11-01T23:00:00.000000+00:00"
+    },
+    "percentage-00012": {
+      "id": "percentage-00012",
+      "section": "Unit and Percentage Errors",
+      "content": "[CRITICAL] Percentage calculations: discount_pct of 20 means 20%, not 2000%. Formula: price * (discount_pct / 100) OR pass as 0.20. Red flag: result is negative or >100% of original. Pattern: calculate_discount(100, 20) expecting $80 but getting $-1900. Always convert percentage to decimal before multiplication.",
+      "helpful": 10,
+      "harmful": 0,
+      "neutral": 0,
+      "created_at": "2025-11-01T23:00:00.000000+00:00",
+      "updated_at": "2025-11-01T23:00:00.000000+00:00"
+    },
+    "exception-00013": {
+      "id": "exception-00013",
+      "section": "Exception Handling Patterns",
+      "content": "[CRITICAL] Bare except: catches ALL exceptions (TypeError, KeyError, NameError) masking real bugs. Pattern: except: return 0. Problem: safe_divide('10', 2) returns 0 instead of raising TypeError. Fix: except ZeroDivisionError specifically. Rule: Only catch exceptions you can handle. Bare except hides bugs during development.",
+      "helpful": 10,
+      "harmful": 0,
+      "neutral": 0,
+      "created_at": "2025-11-01T23:00:00.000000+00:00",
+      "updated_at": "2025-11-01T23:00:00.000000+00:00"
+    },
+    "iterator-00014": {
+      "id": "iterator-00014",
+      "section": "Iterator Modification Anti-Pattern",
+      "content": "[CRITICAL] NEVER modify list while iterating: for item in list: list.remove(item) skips elements. Reason: removal shifts indices, iterator doesn't adjust. Pattern: [1,2,3,4] removing evens, after removing 2 at index 1, element 3 shifts to index 1, iterator moves to index 2 (now 4), skipping 3. Fix: list comprehension [x for x in list if condition] OR iterate over copy: for item in list.copy(). This is O(n) vs broken O(n\u00b2).",
+      "helpful": 10,
+      "harmful": 0,
+      "neutral": 0,
+      "created_at": "2025-11-01T23:00:00.000000+00:00",
+      "updated_at": "2025-11-01T23:00:00.000000+00:00"
     }
   },
   "sections": {
@@ -142,6 +182,18 @@
     ],
     "Dictionary Access Patterns": [
       "keyerror-00001"
+    ],
+    "Missing Case Handling": [
+      "missing-case-00011"
+    ],
+    "Unit and Percentage Errors": [
+      "percentage-00012"
+    ],
+    "Exception Handling Patterns": [
+      "exception-00013"
+    ],
+    "Iterator Modification Anti-Pattern": [
+      "iterator-00014"
     ]
   },
   "next_id": 10
