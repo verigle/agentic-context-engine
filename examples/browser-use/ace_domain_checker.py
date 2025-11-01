@@ -17,10 +17,15 @@ load_dotenv()
 from ace.prompts_v2 import PromptManager
 from browser_use import Agent, Browser, ChatOpenAI
 
-
-def calculate_timeout_steps(timeout_seconds: float) -> int:
-    """Calculate additional steps for timeout based on 1 step per 12 seconds."""
-    return int(timeout_seconds // 12)
+# Import common utilities
+from common import (
+    calculate_timeout_steps,
+    parse_domain_checker_output,
+    format_result_output,
+    save_results_to_file,
+    MAX_RETRIES,
+    DEFAULT_TIMEOUT_SECONDS
+)
 
 
 from ace import (

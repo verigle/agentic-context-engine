@@ -22,9 +22,11 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from ace.explainability import (
-    EvolutionTracker, AttributionAnalyzer, InteractionTracer, ExplainabilityVisualizer
-)
+# Note: Explainability module has been replaced by observability (Opik integration)
+# The following imports are commented out as the module is deprecated:
+# from ace.explainability import (
+#     EvolutionTracker, AttributionAnalyzer, InteractionTracer, ExplainabilityVisualizer
+# )
 from ace.adaptation import AdapterStepResult, Sample
 from ace.roles import GeneratorOutput, ReflectorOutput, CuratorOutput
 from ace.playbook import Playbook

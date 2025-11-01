@@ -33,37 +33,40 @@ cd agentic-context-engine
 pip install -e .
 ```
 
-### Dependency Management (UV - Modern Approach)
-This project uses UV for ultra-fast dependency management with automatic locking.
+### Development with UV (Recommended for Contributors)
+UV is a modern, ultra-fast Python package manager (10-100x faster than pip).
 
+**Quick Start:**
 ```bash
-# Install dependencies (10-100x faster than pip)
-uv sync
+# Clone and setup (one command!)
+git clone https://github.com/kayba-ai/agentic-context-engine
+cd agentic-context-engine
+uv sync                          # Installs everything automatically
 
-# Development workflow (contributors)
-uv add package-name              # Add new dependency
-uv remove package-name           # Remove dependency
-uv sync                          # Install/update all dependencies
-uv sync --locked                 # Use exact versions from uv.lock (for CI)
-
-# Run scripts (auto-activates virtual environment)
+# Run any example or script
 uv run python examples/simple_ace_example.py
 uv run pytest                    # Run tests
-uv run python -m ace.demos       # Run demos
-
-# Update dependencies
-uv lock --upgrade                # Update all to latest compatible versions
-uv lock --upgrade-package requests  # Update specific package
-
-# Python version management
-uv python pin 3.12              # Pin Python version for project
-uv python install 3.11          # Install Python 3.11
 ```
 
-**Files:**
-- `pyproject.toml` - Project metadata and dependencies (PEP 621 standard)
-- `uv.lock` - Locked dependencies with exact versions (auto-generated, like package-lock.json)
-- `.python-version` - Pinned Python version for the project
+**That's it!** UV handles virtual environments, dependencies, and Python versions automatically.
+
+**Advanced UV Commands (optional):**
+```bash
+# Add/remove dependencies
+uv add package-name              # Add new dependency
+uv remove package-name           # Remove dependency
+
+# Update dependencies
+uv lock --upgrade                # Update all to latest versions
+
+# CI/Production
+uv sync --locked                 # Use exact versions from uv.lock
+```
+
+**Files managed by UV:**
+- `pyproject.toml` - Project configuration (edit this for new deps)
+- `uv.lock` - Locked versions (auto-generated, commit this)
+- `.python-version` - Python 3.12 (UV installs if needed)
 
 ### Running Tests
 ```bash
@@ -157,14 +160,9 @@ python scripts/explain_ace_performance.py
   - `litellm_client.py`: LiteLLM integration (100+ model providers)
   - `langchain_client.py`: LangChain integration
 
-**ace/explainability/** - Explainability framework:
-- `evolution_tracker.py`: Track playbook evolution over time
-- `attribution_analyzer.py`: Analyze which bullets contribute to performance
-- `interaction_tracer.py`: Trace role interactions and dependencies
-- `visualizer.py`: Visualization tools for explainability analysis
-
 **ace/observability/** - Production monitoring and observability:
-- Integration with Opik for enterprise-grade monitoring and tracking
+- `opik_integration.py`: Enterprise-grade monitoring with Opik
+- `tracers.py`: Automatic tracing decorators for all role interactions
 - **Automatic token usage and cost tracking** for all LLM calls
 - Real-time cost monitoring via Opik dashboard
 
@@ -203,11 +201,11 @@ python scripts/explain_ace_performance.py
    - Implement `evaluate()` to provide execution feedback
    - Return `EnvironmentResult` with feedback and optional ground truth
 
-4. **Explainability Integration**:
-   - Use `EvolutionTracker` to monitor playbook changes over time
-   - Use `AttributionAnalyzer` to identify high-impact bullets
-   - Use `InteractionTracer` to understand role dependencies
-   - Use `ExplainabilityVisualizer` for visual analysis
+4. **Observability Integration**:
+   - Automatic tracing with Opik when installed
+   - Token usage and cost tracking for all LLM calls
+   - Real-time monitoring of Generator, Reflector, and Curator interactions
+   - View traces at https://www.comet.com/opik or local Opik instance
 
 ## Python Requirements
 - Python 3.11+ (developed with 3.12)

@@ -4,7 +4,7 @@ Get your first self-improving AI agent running in 5 minutes!
 
 ## Prerequisites
 
-- Python 3.9 or higher
+- Python 3.11 or higher
 - An API key for your preferred LLM provider (OpenAI, Anthropic, etc.)
 
 ## Installation

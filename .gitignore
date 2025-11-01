@@ -77,6 +77,14 @@ reports/
 docs/method_outline.md
 logs/
 
+# Generated playbook and result files
+*_playbook.json
+ace_domain_playbook.json
+kayba_learned.json
+kayba_test_playbook.json
+my_agent.json
+my_trained_agent.json
+
 # Benchmark data and cache
 benchmark_results/
 benchmark_cache/

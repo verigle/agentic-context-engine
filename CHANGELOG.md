@@ -5,6 +5,54 @@ All notable changes to ACE Framework will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-10-26
+
+### Added
+- **Production Observability** with Opik integration
+  - Enterprise-grade monitoring and tracing
+  - Automatic token usage and cost tracking for all LLM calls
+  - Real-time cost monitoring via Opik dashboard
+  - Graceful degradation when Opik is not installed
+- **Browser Automation Demos** showing ACE vs baseline performance
+  - Domain checker demo with learning capabilities
+  - Form filler demo with adaptive strategies
+  - Side-by-side comparison of baseline vs ACE-enhanced automation
+- Support for UV package manager (10-100x faster than pip)
+  - Added uv.lock for reproducible builds
+  - UV-specific installation and development instructions
+- Improved documentation structure with multiple guides
+  - QUICK_START.md for 5-minute quickstart
+  - API_REFERENCE.md for complete API documentation
+  - PROMPT_ENGINEERING.md for advanced techniques
+  - SETUP_GUIDE.md for development setup
+  - TESTING_GUIDE.md for testing procedures
+- Optional dependency groups for modular installation
+  - `observability` for Opik integration
+  - `demos` for browser automation examples
+  - `langchain` for LangChain support
+  - `transformers` for local model support
+  - `dev` for development tools
+  - `all` for all features combined
+
+### Changed
+- **Replaced explainability module with observability**
+  - Removed empty ace/explainability directory
+  - Migrated to production-grade Opik monitoring
+  - Updated all documentation to reflect this change
+- Improved Python version requirements consistency (3.11+ everywhere)
+- Enhanced README with clearer examples and installation options
+- Reorganized examples directory for better discoverability
+- Updated CLAUDE.md with comprehensive codebase guidance
+
+### Fixed
+- Package configuration in pyproject.toml
+- Documentation references to non-existent explainability module
+- Python version inconsistencies across documentation files
+
+### Removed
+- Empty ace/explainability module (replaced by observability)
+- Outdated references to explainability features in documentation
+
 ## [0.3.0] - 2025-10-16
 
 ### Added
@@ -81,6 +129,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Type hints and modern Python practices
 - MIT licensed for open source use
 
+[0.4.0]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/Kayba-ai/agentic-context-engine/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/Kayba-ai/agentic-context-engine/releases/tag/v0.1.0

@@ -274,16 +274,13 @@ reflector = Reflector(
 )
 ```
 
-### Explainability
-Source: ace/explainability/
+### Observability
+Source: ace/observability/ (Replaces explainability with Opik integration)
 
 ```python
-from ace.explainability import (
-    EvolutionTracker,
-    AttributionAnalyzer,
-    InteractionTracer,
-    ExplainabilityVisualizer
-)
+# Observability is now handled via Opik integration
+# The explainability module has been replaced with production-grade monitoring
+# See ace/observability/opik_integration.py for automatic tracing
 
 # Track playbook evolution
 tracker = EvolutionTracker()
@@ -567,15 +564,16 @@ output = generator.generate(
 
 ### Task: Explain what ACE learned
 ```python
-from ace.explainability import AttributionAnalyzer, ExplainabilityVisualizer
+# Note: Explainability has been replaced by Opik observability
+# For production monitoring, see ace/observability/opik_integration.py
 
-# After running adaptation
-analyzer = AttributionAnalyzer(evolution_tracker)
-visualizer = ExplainabilityVisualizer(evolution_tracker)
+# After running adaptation with Opik:
+# - View traces at https://www.comet.com/opik or your local Opik instance
+# - Automatic tracking of Generator, Reflector, and Curator interactions
+# - Token usage and cost tracking included
 
-# Get most impactful strategies
-top_bullets = analyzer.get_high_impact_bullets(threshold=0.8)
-for bullet in top_bullets:
+# To see playbook strategies after adaptation:
+for bullet in adapter.playbook.bullets():
     print(f"Strategy: {bullet.content}")
     print(f"Impact: {bullet.impact_score}")
 

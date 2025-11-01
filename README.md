@@ -41,25 +41,59 @@ export OPENAI_API_KEY="your-api-key"
 ### 3. Create Your First ACE Agent
 
 ```python
-from ace import LiteLLMClient, Generator, Reflector, Curator, Playbook
+from ace import (
+    LiteLLMClient,
+    Generator, Reflector, Curator,
+    OfflineAdapter, Playbook,
+    Sample, TaskEnvironment, EnvironmentResult
+)
 
-# Initialize with any LLM
-client = LiteLLMClient(model="gpt-4o-mini")
+# 1. Create a simple environment for feedback
+class SimpleEnvironment(TaskEnvironment):
+    def evaluate(self, sample, generator_output):
+        # Check if the answer contains the expected content
+        is_correct = sample.ground_truth.lower() in generator_output.final_answer.lower()
+        return EnvironmentResult(
+            feedback="Correct!" if is_correct else "Incorrect answer",
+            ground_truth=sample.ground_truth
+        )
+
+# 2. Initialize ACE components with any LLM
+client = LiteLLMClient(model="gpt-4o-mini")  # Or claude-3-haiku, gemini-pro, etc.
 generator = Generator(client)
 reflector = Reflector(client)
 curator = Curator(client)
 playbook = Playbook()
 
-# Teach your agent through examples
-# (See examples/ folder for complete training patterns)
+# 3. Create training samples
+training_samples = [
+    Sample(question="What is 2+2?", ground_truth="4"),
+    Sample(question="Capital of France?", ground_truth="Paris"),
+    Sample(question="What color is the sky?", ground_truth="blue"),
+]
 
-# Now it can solve new problems with learned strategies
+# 4. Train the agent (it learns from these examples)
+adapter = OfflineAdapter(generator, reflector, curator, playbook=playbook)
+environment = SimpleEnvironment()
+results = adapter.run(training_samples, environment, epochs=1)
+
+print(f"✅ Trained on {len(results)} samples")
+print(f"📚 Learned {len(adapter.playbook.bullets())} strategies")
+
+# 5. Save the learned strategies
+adapter.playbook.save_to_file("my_agent.json")
+
+# 6. Use the trained agent on new problems
 result = generator.generate(
-    question="Give me the seahorse emoji",
-    context="",
-    playbook=playbook
+    question="What is 5+3?",
+    context="Provide direct answer",
+    playbook=adapter.playbook
 )
-print(result.final_answer)  # Agent applies learned strategies
+print(f"\n🤖 Answer: {result.final_answer}")
+
+# 7. Load and reuse later
+trained_playbook = Playbook.load_from_file("my_agent.json")
+# Now use trained_playbook with any new problems!
 ```
 
 That's it! Your agent is now learning and improving. 🎉

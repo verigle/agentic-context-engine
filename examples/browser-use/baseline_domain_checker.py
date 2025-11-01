@@ -14,27 +14,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from browser_use import Agent, Browser, ChatOpenAI
-
-
-def calculate_timeout_steps(timeout_seconds: float) -> int:
-    """Calculate additional steps for timeout based on 1 step per 12 seconds."""
-    return int(timeout_seconds // 12)
-
-
-def get_test_domains() -> List[str]:
-    """Get list of test domains to check."""
-    return [
-        "testdomain123456.com",
-        "myuniquedomain789.net",
-        "brandnewstartup2024.io",
-        "innovativetech555.org",
-        "creativesolutions999.co",
-        "digitalagency2024.biz",
-        "techstartup123.app",
-        "newcompany456.info",
-        "uniquebusiness789.online",
-        "moderntech2024.dev"
-    ]
+from common import (
+    calculate_timeout_steps,
+    get_test_domains,
+    parse_domain_checker_output,
+    format_result_output,
+    MAX_RETRIES,
+    DEFAULT_TIMEOUT_SECONDS,
+    DOMAIN_CHECKER_TEMPLATE
+)
 
 
 async def check_domain(domain: str, model: str = "gpt-4o", headless: bool = True):
@@ -62,18 +50,8 @@ async def check_domain(domain: str, model: str = "gpt-4o", headless: bool = True
             llm = ChatOpenAI(model=model, temperature=0.0)
 
 
-            task = f"""
-You are a domain availability checking agent. Check if the domain "{domain}" is available.
-
-  IMPORTANT: Do NOT navigate to {domain} directly. Instead:
-  1. Go to a domain checking website
-  2. In the search bar type "{domain}" on that website
-  3. Read the availability status from the results
-
-Output format (exactly one of these):
-AVAILABLE: {domain}
-TAKEN: {domain}
-ERROR: <reason>"""
+            # Use common template
+            task = DOMAIN_CHECKER_TEMPLATE.format(domain=domain)
 
             agent = Agent(
                 task=task,
