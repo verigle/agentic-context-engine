@@ -40,30 +40,19 @@ struct ConversationTurn {
     status: Option<String>,
 }
 
-/// Check if a log entry represents the first message in a conversation
-fn is_first_message(entry: &Value) -> bool {
-    if let Some(request_body) = entry.get("request_body") {
-        if let Some(messages) = request_body.get("messages") {
-            if let Some(messages_array) = messages.as_array() {
-                // First message: exactly 1 message with role "user"
-                if messages_array.len() == 1 {
-                    if let Some(first_msg) = messages_array.first() {
-                        if let Some(role) = first_msg.get("role") {
-                            return role.as_str() == Some("user");
-                        }
-                    }
-                }
-            }
-        }
-    }
-    false
-}
-
 /// Extract session ID from a log entry
 fn get_session_id(entry: &Value) -> Option<String> {
     entry
         .get("request_properties")?
         .get("Helicone-Session-Id")?
+        .as_str()
+        .map(String::from)
+}
+
+/// Extract user ID from a log entry
+fn get_user_id(entry: &Value) -> Option<String> {
+    entry
+        .get("request_user_id")?
         .as_str()
         .map(String::from)
 }
@@ -86,23 +75,120 @@ fn get_request_id(entry: &Value) -> String {
         .to_string()
 }
 
-/// Extract the NEW user message from a request (last message in the array)
-fn extract_user_message(entry: &Value) -> Option<String> {
-    let messages = entry.get("request_body")?.get("messages")?.as_array()?;
-    let last_msg = messages.last()?;
+/// Extract all user text messages from a messages array
+fn extract_user_text_messages(messages: &[Value]) -> Vec<String> {
+    let mut user_messages = Vec::new();
 
-    // Check if it's a user message
-    if last_msg.get("role")?.as_str()? == "user" {
-        // Extract text content from content array
-        if let Some(content_array) = last_msg.get("content").and_then(|c| c.as_array()) {
-            for item in content_array {
-                if item.get("type")?.as_str()? == "text" {
-                    return item.get("text").and_then(|t| t.as_str()).map(String::from);
+    for msg in messages {
+        if msg.get("role").and_then(|r| r.as_str()) == Some("user") {
+            if let Some(content_array) = msg.get("content").and_then(|c| c.as_array()) {
+                for item in content_array {
+                    if item.get("type").and_then(|t| t.as_str()) == Some("text") {
+                        if let Some(text) = item.get("text").and_then(|t| t.as_str()) {
+                            user_messages.push(text.to_string());
+                        }
+                    }
                 }
             }
         }
     }
-    None
+
+    user_messages
+}
+
+/// Extract NEW user messages by comparing current with previous messages
+fn extract_new_user_messages(entry: &Value, prev_user_messages: &[String]) -> Vec<String> {
+    let messages = match entry
+        .get("request_body")
+        .and_then(|rb| rb.get("messages"))
+        .and_then(|m| m.as_array())
+    {
+        Some(m) => m,
+        None => return Vec::new(),
+    };
+
+    let current_user_messages = extract_user_text_messages(messages);
+
+    // Find messages that weren't in the previous set
+    let prev_set: HashSet<_> = prev_user_messages.iter().collect();
+    current_user_messages
+        .into_iter()
+        .filter(|msg| !prev_set.contains(&msg))
+        .collect()
+}
+
+/// Get the first N user messages from a conversation for overlap detection
+fn get_first_user_messages(messages: &[Value], n: usize) -> Vec<String> {
+    if messages.is_empty() {
+        return Vec::new();
+    }
+
+    let first_entry = &messages[0];
+    if let Some(msg_array) = first_entry
+        .get("request_body")
+        .and_then(|rb| rb.get("messages"))
+        .and_then(|m| m.as_array())
+    {
+        let user_msgs = extract_user_text_messages(msg_array);
+        user_msgs.into_iter().take(n).collect()
+    } else {
+        Vec::new()
+    }
+}
+
+/// Get the last N user messages from a conversation for overlap detection
+fn get_last_user_messages(messages: &[Value], n: usize) -> Vec<String> {
+    if messages.is_empty() {
+        return Vec::new();
+    }
+
+    let last_entry = messages.last().unwrap();
+    if let Some(msg_array) = last_entry
+        .get("request_body")
+        .and_then(|rb| rb.get("messages"))
+        .and_then(|m| m.as_array())
+    {
+        let user_msgs = extract_user_text_messages(msg_array);
+        let start = user_msgs.len().saturating_sub(n);
+        user_msgs.into_iter().skip(start).collect()
+    } else {
+        Vec::new()
+    }
+}
+
+/// Check if conversation B is a continuation of conversation A
+/// by checking if B's first messages overlap with A's last messages
+fn has_message_overlap(
+    conv_a: &[Value],
+    conv_b: &[Value],
+    user_a: &Option<String>,
+    user_b: &Option<String>,
+) -> bool {
+    // Must have same user
+    if user_a != user_b || user_a.is_none() {
+        return false;
+    }
+
+    // Check for message overlap (compare last 5 messages of A with first 5 of B)
+    let last_msgs_a = get_last_user_messages(conv_a, 5);
+    let first_msgs_b = get_first_user_messages(conv_b, 5);
+
+    if last_msgs_a.is_empty() || first_msgs_b.is_empty() {
+        return false;
+    }
+
+    // If at least 2 of B's first messages match any of A's last messages, it's likely a continuation
+    let mut match_count = 0;
+    for msg_b in &first_msgs_b {
+        for msg_a in &last_msgs_a {
+            if msg_a == msg_b {
+                match_count += 1;
+                break;
+            }
+        }
+    }
+
+    match_count >= 2
 }
 
 /// Extract assistant response content
@@ -123,7 +209,7 @@ fn extract_assistant_content(entry: &Value) -> Vec<ConversationTurn> {
                         if let Some(text) = item.get("text").and_then(|t| t.as_str()) {
                             turns.push(ConversationTurn {
                                 turn_type: "assistant".to_string(),
-                                step: 0, // Will be set later
+                                step: 0,
                                 timestamp: timestamp.clone(),
                                 request_id: request_id.clone(),
                                 content: Some(text.to_string()),
@@ -200,7 +286,7 @@ fn extract_tool_results(entry: &Value) -> Vec<ConversationTurn> {
                         }
                     }
                 }
-                break; // Stop after checking the last user message
+                break;
             }
         }
     }
@@ -212,10 +298,13 @@ fn extract_tool_results(entry: &Value) -> Vec<ConversationTurn> {
 fn conversation_to_turns(messages: &[Value]) -> Vec<ConversationTurn> {
     let mut turns = Vec::new();
     let mut step = 0;
+    let mut seen_user_messages: Vec<String> = Vec::new();
 
     for entry in messages {
-        // Check for new user message
-        if let Some(user_msg) = extract_user_message(entry) {
+        // Extract NEW user messages by comparing with previous
+        let new_user_msgs = extract_new_user_messages(entry, &seen_user_messages);
+
+        for user_msg in &new_user_msgs {
             step += 1;
             let timestamp = get_timestamp(entry, "request_created_at");
             let request_id = get_request_id(entry);
@@ -225,13 +314,16 @@ fn conversation_to_turns(messages: &[Value]) -> Vec<ConversationTurn> {
                 step,
                 timestamp,
                 request_id,
-                content: Some(user_msg),
+                content: Some(user_msg.clone()),
                 tool: None,
                 tool_use_id: None,
                 input: None,
                 status: None,
             });
         }
+
+        // Update seen messages
+        seen_user_messages.extend(new_user_msgs);
 
         // Check for tool results (comes before assistant response)
         let tool_results = extract_tool_results(entry);
@@ -257,7 +349,6 @@ fn conversation_to_turns(messages: &[Value]) -> Vec<ConversationTurn> {
 fn process_chunk_file(
     path: &Path,
     active_conversations: &mut HashMap<String, Vec<Value>>,
-    skipped_sessions: &mut HashSet<String>,
     stats: &mut Stats,
 ) -> Result<()> {
     let file = File::open(path)
@@ -294,25 +385,14 @@ fn process_chunk_file(
             None => continue,
         };
 
-        // Check if this is a first message
-        if is_first_message(&entry) {
-            // Only start tracking if we haven't seen this session yet
-            if !active_conversations.contains_key(&session_id) {
-                active_conversations.insert(session_id.clone(), vec![entry]);
-                stats.first_messages_found += 1;
+        // Add to conversation (create if doesn't exist)
+        active_conversations
+            .entry(session_id)
+            .or_insert_with(Vec::new)
+            .push(entry);
 
-                if stats.first_messages_found % 100 == 0 {
-                    println!("  ✓ Found {} conversation starts", stats.first_messages_found);
-                }
-            }
-        } else {
-            // Add to conversation if we're tracking this session
-            if let Some(messages) = active_conversations.get_mut(&session_id) {
-                messages.push(entry);
-            } else {
-                // Track incomplete sessions (started before our logs)
-                skipped_sessions.insert(session_id);
-            }
+        if stats.total_lines % 10000 == 0 {
+            println!("  ✓ Processed {} lines, {} sessions so far", stats.total_lines, active_conversations.len());
         }
     }
 
@@ -322,7 +402,6 @@ fn process_chunk_file(
 #[derive(Default)]
 struct Stats {
     total_lines: usize,
-    first_messages_found: usize,
 }
 
 /// Process all chunk files in chronological order
@@ -338,7 +417,6 @@ fn process_all_chunks(chunks_dir: &Path) -> Result<HashMap<String, Vec<Value>>> 
     ];
 
     let mut active_conversations: HashMap<String, Vec<Value>> = HashMap::new();
-    let mut skipped_sessions: HashSet<String> = HashSet::new();
     let mut stats = Stats::default();
 
     for chunk_file in &chunk_files {
@@ -351,20 +429,84 @@ fn process_all_chunks(chunks_dir: &Path) -> Result<HashMap<String, Vec<Value>>> 
 
         println!("\n📄 Processing {}...", chunk_file);
 
-        process_chunk_file(
-            &chunk_path,
-            &mut active_conversations,
-            &mut skipped_sessions,
-            &mut stats,
-        )?;
+        process_chunk_file(&chunk_path, &mut active_conversations, &mut stats)?;
     }
 
     println!("\n📊 Processing complete!");
     println!("  Total lines processed: {}", stats.total_lines);
-    println!("  Complete conversations found: {}", active_conversations.len());
-    println!("  Incomplete sessions skipped: {}", skipped_sessions.len());
+    println!("  Unique sessions found: {}", active_conversations.len());
 
     Ok(active_conversations)
+}
+
+/// Merge conversations that are continuations (same user, overlapping messages)
+fn merge_continuations(
+    conversations: HashMap<String, Vec<Value>>,
+) -> HashMap<String, Vec<Value>> {
+    println!("\n🔗 Detecting conversation continuations...");
+
+    // Extract user IDs for each conversation
+    let mut conv_users: HashMap<String, Option<String>> = HashMap::new();
+    let mut conv_timestamps: HashMap<String, String> = HashMap::new();
+
+    for (session_id, messages) in &conversations {
+        let user_id = messages.first().and_then(|entry| get_user_id(entry));
+        let timestamp = messages.first().map(|entry| get_timestamp(entry, "request_created_at")).unwrap_or_default();
+        conv_users.insert(session_id.clone(), user_id);
+        conv_timestamps.insert(session_id.clone(), timestamp);
+    }
+
+    // Sort conversations by first timestamp
+    let mut sorted_convs: Vec<(String, Vec<Value>)> = conversations.into_iter().collect();
+    sorted_convs.sort_by_key(|(session_id, _)| {
+        conv_timestamps.get(session_id).cloned().unwrap_or_default()
+    });
+
+    let mut merged: HashMap<String, Vec<Value>> = HashMap::new();
+    let mut merged_into: HashMap<String, String> = HashMap::new(); // Maps session_id -> merged_into_session_id
+
+    for (session_id, messages) in sorted_convs {
+        // Check if this was already merged
+        if merged_into.contains_key(&session_id) {
+            continue;
+        }
+
+        // Check if this is a continuation of any existing conversation
+        let user_id = conv_users.get(&session_id).unwrap();
+        let mut found_parent = false;
+
+        for (parent_id, parent_messages) in merged.iter_mut() {
+            let parent_user = conv_users.get(parent_id).unwrap();
+
+            if has_message_overlap(parent_messages, &messages, parent_user, user_id) {
+                println!(
+                    "  ✓ Merging {} into {} (same user, overlapping messages)",
+                    &session_id[..20.min(session_id.len())],
+                    &parent_id[..20.min(parent_id.len())]
+                );
+                parent_messages.extend(messages.clone());
+                merged_into.insert(session_id.clone(), parent_id.clone());
+                found_parent = true;
+                break;
+            }
+        }
+
+        if !found_parent {
+            merged.insert(session_id, messages);
+        }
+    }
+
+    let original_count = conv_users.len();
+    let merged_count = merged.len();
+    let continuation_count = original_count - merged_count;
+
+    println!(
+        "  Merged {} continuations into existing conversations",
+        continuation_count
+    );
+    println!("  Final conversation count: {}", merged_count);
+
+    merged
 }
 
 /// Save conversations in both formats
@@ -445,13 +587,16 @@ fn main() -> Result<()> {
     println!("📁 Chunks directory: {}", chunks_dir.display());
     println!("📁 Output directory: {}", output_dir.display());
 
-    // Process all chunks
+    // Process all chunks - collect ALL sessions
     let conversations = process_all_chunks(&chunks_dir)?;
 
+    // Merge conversation continuations based on user_id + message overlap
+    let merged_conversations = merge_continuations(conversations);
+
     // Save results
-    let count = conversations.len();
+    let count = merged_conversations.len();
     if count > 0 {
-        save_conversations(conversations, &output_dir)?;
+        save_conversations(merged_conversations, &output_dir)?;
         println!("\n✅ Done! {} complete conversations constructed.", count);
     } else {
         println!("\n⚠️  No complete conversations found!");
