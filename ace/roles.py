@@ -196,11 +196,16 @@ class ReplayGenerator:
     where you want ACE to learn from actual past interactions without
     generating new responses.
 
+    Supports two modes:
+    1. **Dict-based**: Lookup responses by question in a mapping (original mode)
+    2. **Sample-based**: Read response directly from sample object/metadata (new mode)
+
     Args:
-        responses: Dict mapping questions to their pre-recorded answers
+        responses: Dict mapping questions to their pre-recorded answers (optional)
         default_response: Response to return if question not found (default: "")
 
-    Example:
+    Examples:
+        Dict-based mode (original):
         >>> responses = {
         ...     "What is 2+2?": "4",
         ...     "What is the capital of France?": "Paris"
@@ -213,14 +218,27 @@ class ReplayGenerator:
         ... )
         >>> print(output.final_answer)
         4
+
+        Sample-based mode (for list-based datasets):
+        >>> # Sample with response in metadata
+        >>> sample = {'question': '...', 'metadata': {'response': 'answer'}}
+        >>> generator = ReplayGenerator()  # No dict needed
+        >>> output = generator.generate(
+        ...     question=sample['question'],
+        ...     context='',
+        ...     playbook=Playbook(),
+        ...     sample=sample  # Pass sample in kwargs
+        ... )
+        >>> print(output.final_answer)
+        answer
     """
 
     def __init__(
         self,
-        responses: Dict[str, str],
+        responses: Optional[Dict[str, str]] = None,
         default_response: str = ""
     ) -> None:
-        self.responses = responses
+        self.responses = responses if responses is not None else {}
         self.default_response = default_response
 
     @maybe_track(
@@ -240,26 +258,71 @@ class ReplayGenerator:
         """
         Return the pre-recorded response for the given question.
 
+        Resolution priority:
+        1. Check if 'sample' in kwargs and extract response from sample.metadata or sample dict
+        2. Look up question in responses dict
+        3. Use default_response as fallback
+
         Args:
             question: The question to answer
             context: Additional context (ignored in replay)
             playbook: The current playbook (ignored in replay)
             reflection: Optional reflection (ignored in replay)
-            **kwargs: Additional arguments (ignored in replay)
+            **kwargs: Additional arguments. Can include 'sample' for sample-based mode.
 
         Returns:
             GeneratorOutput with the replayed answer
         """
-        # Get the pre-recorded response
+        # Priority 1: Try to get response from sample object (if provided in kwargs)
+        final_answer = None
+        response_source = None
+
+        if 'sample' in kwargs:
+            sample = kwargs['sample']
+
+            # Try sample.metadata['response'] (dataclass/object with metadata attribute)
+            if hasattr(sample, 'metadata') and isinstance(sample.metadata, dict):
+                final_answer = sample.metadata.get('response')
+                if final_answer:
+                    response_source = "sample_metadata"
+
+            # Try sample['metadata']['response'] (dict with metadata key)
+            if not final_answer and isinstance(sample, dict) and 'metadata' in sample:
+                if isinstance(sample['metadata'], dict):
+                    final_answer = sample['metadata'].get('response')
+                    if final_answer:
+                        response_source = "sample_dict_metadata"
+
+            # Try sample['response'] directly (dict with response at top level)
+            if not final_answer and isinstance(sample, dict):
+                final_answer = sample.get('response')
+                if final_answer:
+                    response_source = "sample_dict_direct"
+
+        # Priority 2: Look up in responses dict
         question_found = question in self.responses
-        final_answer = self.responses.get(question, self.default_response)
+        if not final_answer and question_found:
+            final_answer = self.responses[question]
+            response_source = "responses_dict"
+
+        # Priority 3: Use default response
+        if not final_answer:
+            final_answer = self.default_response
+            response_source = "default_response"
 
         # Create metadata for observability
-        reasoning = "[Replayed from historical data]"
-        if not question_found and self.default_response:
-            reasoning = f"[Replayed - using default response (question not in mapping)]"
-        elif not question_found:
-            reasoning = f"[Replayed - question not found in mapping, empty response]"
+        if response_source == "sample_metadata":
+            reasoning = "[Replayed from sample metadata]"
+        elif response_source == "sample_dict_metadata":
+            reasoning = "[Replayed from sample dict metadata]"
+        elif response_source == "sample_dict_direct":
+            reasoning = "[Replayed from sample dict]"
+        elif response_source == "responses_dict":
+            reasoning = "[Replayed from responses dict]"
+        elif self.default_response:
+            reasoning = "[Replayed - using default response (no source found)]"
+        else:
+            reasoning = "[Replayed - no response found, empty response]"
 
         # Return GeneratorOutput matching the interface
         return GeneratorOutput(
@@ -271,8 +334,9 @@ class ReplayGenerator:
                 "final_answer": final_answer,
                 "bullet_ids": [],
                 "replay_metadata": {
-                    "question_found": question_found,
-                    "used_default": not question_found,
+                    "response_source": response_source,
+                    "question_found_in_dict": question_found,
+                    "sample_provided": 'sample' in kwargs,
                     "total_responses_in_mapping": len(self.responses)
                 }
             }
