@@ -1,6 +1,6 @@
 <img src="https://framerusercontent.com/images/XBGa12hY8xKYI6KzagBxpbgY4.png" alt="Kayba Logo" width="1080"/>
 
-# Agentic Context Engine (ACE) 
+# Agentic Context Engine (ACE)
 
 ![GitHub stars](https://img.shields.io/github/stars/kayba-ai/agentic-context-engine?style=social)
 [![Discord](https://img.shields.io/discord/1429935408145236131?label=Discord&logo=discord&logoColor=white&color=5865F2)](https://discord.gg/mqCqH7sTyK)
@@ -18,6 +18,7 @@ Star ⭐️ this repo if you find it useful!
 ---
 
 ## 🤖 LLM Quickstart
+
 1. Direct your favorite coding agent (Cursor, Claude Code, Codex, etc) to [Agents.md](https://github.com/kayba-ai/agentic-context-engine/blob/main/Agents.md?plain=1)
 2. Prompt away!
 
@@ -73,6 +74,7 @@ AI agents make the same mistakes repeatedly.
 ACE enables agents to learn from execution feedback: what works, what doesn't, and continuously improve. <br> No training data, no fine-tuning, just automatic improvement.
 
 ### Clear Benefits
+
 - 📈 **20-35% Better Performance**: Proven improvements on complex tasks
 - 🧠 **Self-Improving**: Agents get smarter with each task
 - 🔄 **No Context Collapse**: Preserves valuable knowledge over time
@@ -83,6 +85,22 @@ ACE enables agents to learn from execution feedback: what works, what doesn't, a
 
 ## Demos
 
+### 🌐 Browser Automation with ACE
+
+Browser automation agents powered by [browser-use](https://github.com/browser-use/browser-use) sometimes struggle with input field formats and validation requirements. ACE helps agents learn from mistakes and avoid repeating them when navigating the web.
+
+![Browser Use Demo](ace_browser_use_demo.gif)
+
+In this example, when prompted to sign up to a website with a given name and email, ACE learns to also fill in a password field with proper specifications (such as requiring special characters, uppercase letters, and minimum length) even when not explicitly instructed.
+
+Try it yourself:
+
+```bash
+python examples/browser-use/ace_browser_use.py
+```
+
+---
+
 ### 🌊 The Seahorse Emoji Challenge
 
 A challenge where LLMs often hallucinate that a seahorse emoji exists (it doesn't).
@@ -91,11 +109,13 @@ Watch ACE learn from its own mistakes in real-time. This demo shows how ACE hand
 ![Kayba Test Demo](kayba_test_demo.gif)
 
 In this example:
+
 - **Round 1**: The agent incorrectly outputs 🐴 (horse emoji)
 - **Self-Reflection**: ACE reflects without any external feedback
 - **Round 2**: With learned strategies from ACE, the agent successfully realizes there is no seahorse emoji
 
 Try it yourself:
+
 ```bash
 python examples/kayba_ace_test.py
 ```
@@ -104,14 +124,16 @@ python examples/kayba_ace_test.py
 
 ## How does Agentic Context Engine (ACE) work?
 
-*Based on the [ACE research framework](https://arxiv.org/abs/2510.04618) from Stanford & SambaNova.*
+_Based on the [ACE research framework](https://arxiv.org/abs/2510.04618) from Stanford & SambaNova._
 
 ACE uses three specialized roles that work together:
+
 1. **🎯 Generator** - Executes tasks using learned strategies from the playbook
 2. **🔍 Reflector** - Analyzes what worked and what didn't after each execution
 3. **📝 Curator** - Updates the playbook with new strategies based on reflection
 
 ACE teaches your agent and internalises:
+
 - **✅ Successes** → Extract patterns that work
 - **❌ Failures** → Learn what to avoid
 - **🔧 Tool usage** → Discover which tools work best for which tasks
@@ -202,6 +224,7 @@ client = LiteLLMClient(
 ACE includes built-in Opik integration for production monitoring and debugging.
 
 #### Quick Start
+
 ```bash
 # Install with Opik support
 pip install ace-framework opik
@@ -212,13 +235,16 @@ export OPIK_PROJECT_NAME="ace-project"
 ```
 
 #### What Gets Tracked
+
 When Opik is available, ACE automatically logs:
+
 - **Generator**: Input questions, reasoning, and final answers
 - **Reflector**: Error analysis and bullet classifications
 - **Curator**: Playbook updates and delta operations
 - **Playbook Evolution**: Changes to strategies over time
 
 #### Viewing Traces
+
 ```python
 # Opik tracing is automatic - just run your ACE code normally
 from ace import Generator, Reflector, Curator, Playbook
@@ -235,6 +261,7 @@ output = generator.generate(
 ```
 
 #### Graceful Degradation
+
 If Opik is not installed or configured, ACE continues to work normally without tracing. No code changes needed.
 
 ---
@@ -260,10 +287,10 @@ We love contributions! Check out our [Contributing Guide](CONTRIBUTING.md) to ge
 Based on the [ACE paper](https://arxiv.org/abs/2510.04618) and inspired by [Dynamic Cheatsheet](https://arxiv.org/abs/2504.07952).
 
 If you use ACE in your research, please cite:
+
 ```bibtex
 @article{zhang2024ace,title={Agentic Context Engineering},author={Zhang et al.},journal={arXiv:2510.04618},year={2024}}
 ```
-
 
 <div align="center">
 

@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Smart Form Filler Demo</title>
+    <title>Sign Up Form Demo</title>
     <style>
       :root {
         color-scheme: light dark;
@@ -156,14 +156,10 @@
   </head>
   <body>
     <article class="card">
-      <h1>Shipping Details</h1>
-      <p class="description">
-        This demo form powers the Smart Form Filler project. Submitting with
-        incorrect formats will surface precise validation messages so the
-        Agentic Context Engine can learn how to normalize data.
-      </p>
+      <h1>Welcome to ACE!</h1>
+      <p class="description">Sign up and get started.</p>
 
-      <form id="shipping-form" novalidate>
+      <form id="signup-form" novalidate>
         <div class="field">
           <label for="first_name">First Name</label>
           <input
@@ -200,45 +196,19 @@
           <span class="error-message" data-field="email"></span>
         </div>
 
-        <div class="field">
-          <label for="phone">Phone (9 digits)</label>
-          <input
-            id="phone"
-            name="phone"
-            type="text"
-            placeholder="600123456"
-            inputmode="numeric"
-            maxlength="12"
-            required
-          />
-          <span class="error-message" data-field="phone"></span>
-        </div>
-
-        <div class="field">
-          <label for="ship_date">Desired Ship Date</label>
-          <input
-            id="ship_date"
-            name="ship_date"
-            type="text"
-            placeholder="Shipping Date"
-            required
-          />
-          <span class="error-message" data-field="ship_date"></span>
-        </div>
-
         <div class="field full-width">
-          <label for="address1">Address</label>
+          <label for="password">Password</label>
           <input
-            id="address1"
-            name="address1"
-            type="text"
-            placeholder="123 Main Street"
+            id="password"
+            name="password"
+            type="password"
+            placeholder="Enter a secure password"
             required
           />
-          <span class="error-message" data-field="address1"></span>
+          <span class="error-message" data-field="password"></span>
         </div>
 
-        <button id="submit" type="submit">Submit Order</button>
+        <button id="submit" type="submit">Create Account</button>
       </form>
 
       <section id="status" class="status-area" aria-live="polite">
@@ -247,31 +217,46 @@
     </article>
 
     <script>
-      const form = document.getElementById("shipping-form");
+      const form = document.getElementById("signup-form");
       const statusArea = document.getElementById("status");
       const errorMessages = Array.from(
         document.querySelectorAll(".error-message")
       );
 
-      const FORM_RULES = {
-        ship_date: {
-          pattern: /^\d{2}\/\d{2}\/\d{4}$/,
-          message: "Date must be in MM/DD/YYYY format, e.g., 08/12/1998",
-        },
-        phone: {
-          pattern: /^\d{9}$/,
-          message: "Phone number must be exactly 9 digits (digits only).",
-        },
-      };
+      function validatePassword(password) {
+        const errors = [];
 
-      const REQUIRED_FIELDS = [
-        "first_name",
-        "last_name",
-        "email",
-        "phone",
-        "ship_date",
-        "address1",
-      ];
+        // Rule 1: More than 12 characters (at least 13)
+        if (password.length <= 12) {
+          errors.push("Password must be more than 12 characters long.");
+        }
+
+        // Rule 2: Must contain at least one uppercase letter
+        if (!/[A-Z]/.test(password)) {
+          errors.push("Password must contain at least one uppercase letter.");
+        }
+
+        // Rule 3: Must contain at least one lowercase letter
+        if (!/[a-z]/.test(password)) {
+          errors.push("Password must contain at least one lowercase letter.");
+        }
+
+        // Rule 4: Must contain at least one number
+        if (!/\d/.test(password)) {
+          errors.push("Password must contain at least one number.");
+        }
+
+        // Rule 5: Must contain at least one special character
+        if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+          errors.push(
+            "Password must contain at least one special character (!@#$%^&* etc.)."
+          );
+        }
+
+        return errors;
+      }
+
+      const REQUIRED_FIELDS = ["first_name", "last_name", "email", "password"];
 
       window.__FORM_STATE__ = {
         submitted: false,
@@ -343,6 +328,7 @@
 
         let hasError = false;
 
+        // Check required fields
         for (const field of REQUIRED_FIELDS) {
           const element = form.elements.namedItem(field);
           if (!element) continue;
@@ -353,12 +339,23 @@
           }
         }
 
-        for (const [field, rule] of Object.entries(FORM_RULES)) {
-          const element = form.elements.namedItem(field);
-          if (!(element instanceof HTMLInputElement)) continue;
-          const value = element.value.trim();
-          if (value && !rule.pattern.test(value)) {
-            registerError(field, rule.message);
+        // Validate email format
+        const emailElement = form.elements.namedItem("email");
+        if (emailElement && emailElement.value.trim()) {
+          const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailPattern.test(emailElement.value.trim())) {
+            registerError("email", "Please enter a valid email address.");
+            hasError = true;
+          }
+        }
+
+        // Validate password with common rules
+        const passwordElement = form.elements.namedItem("password");
+        if (passwordElement && passwordElement.value.trim()) {
+          const passwordErrors = validatePassword(passwordElement.value.trim());
+          if (passwordErrors.length > 0) {
+            // Show first error message
+            registerError("password", passwordErrors[0]);
             hasError = true;
           }
         }
@@ -373,7 +370,7 @@
 
         window.__FORM_STATE__.submitted = true;
         window.__FORM_STATE__.errors = {};
-        window.__FORM_STATE__.successMessage = "Form submitted successfully";
+        window.__FORM_STATE__.successMessage = "Account created successfully!";
         window.__FORM_STATE__.timestamp = new Date().toISOString();
 
         markSuccess(window.__FORM_STATE__.successMessage);

@@ -211,12 +211,11 @@ class BrowserUseEnvironment(TaskEnvironment):
                 task=browser_use_prompt,
                 llm=llm,
                 browser=browser,
-                max_actions_per_step=10,
-                max_steps=10
+                max_actions_per_step=5,
             )
 
             # Run with timeout
-            history = await asyncio.wait_for(agent.run(), timeout=240.0)
+            history = await asyncio.wait_for(agent.run(max_steps=10), timeout=240.0)
             return history
         except asyncio.TimeoutError:
             # Try to get steps from history if it exists
@@ -334,12 +333,12 @@ class BrowserUseEnvironment(TaskEnvironment):
             return 0, 0, 0, 0
 
 
-def main(task_file: str = "task1_flight_search.txt"):
+def main(task_file: str = "task2_form.txt"):
     """Main function - browser automation with ACE learning.
     
     Args:
         task_file: Path to the task file containing the browser task description.
-                  Defaults to "task1_flight_search.txt".
+                  Defaults to "task2_form.txt".
     """
 
     # Capture start time for trace filtering
@@ -483,6 +482,6 @@ def main(task_file: str = "task1_flight_search.txt"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ACE Browser Use Agent")
-    parser.add_argument("--task-file", type=str, default="task1_flight_search.txt", help="Path to the task file")
+    parser.add_argument("--task-file", type=str, default="task2_form.txt", help="Path to the task file")
     args = parser.parse_args()  
     main(args.task_file)

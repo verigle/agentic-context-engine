@@ -1,12 +1,9 @@
 Go to the following website:
 http://127.0.0.1:8765/form.html
 
-Fill out the form with the following data:
+Sign up for an account:
 - First Name: Miguel
-- Last Name: García
-- Email: miguel.garcia@example.com
-- Phone: +34 600-12-34-56
-- Address: Calle de la Universidad 12
-- Ship Date: 12-08-1998
+- Last Name: Martinez
+- Email: miguel.martinez@example.com
 
 Then click the submit button. Once the form is submitted successfully you can stop.
