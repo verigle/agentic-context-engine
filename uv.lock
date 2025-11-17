@@ -30,7 +30,6 @@ name = "ace-framework"
 version = "0.4.0"
 source = { editable = "." }
 dependencies = [
-    { name = "langchain-openai" },
     { name = "litellm" },
     { name = "pydantic" },
     { name = "python-dotenv" },
@@ -40,18 +39,26 @@ dependencies = [
 [package.optional-dependencies]
 all = [
     { name = "accelerate" },
-    { name = "browser-use" },
-    { name = "datasets" },
     { name = "langchain-litellm" },
-    { name = "openpyxl" },
+    { name = "langchain-openai" },
     { name = "opik" },
-    { name = "pandas" },
-    { name = "playwright" },
-    { name = "pyyaml" },
-    { name = "rich" },
     { name = "torch" },
     { name = "transformers" },
 ]
+langchain = [
+    { name = "langchain-litellm" },
+    { name = "langchain-openai" },
+]
+observability = [
+    { name = "opik" },
+]
+transformers = [
+    { name = "accelerate" },
+    { name = "torch" },
+    { name = "transformers" },
+]
+
+[package.dev-dependencies]
 demos = [
     { name = "browser-use" },
     { name = "datasets" },
@@ -69,57 +76,46 @@ dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
 ]
-langchain = [
-    { name = "langchain-litellm" },
-]
-observability = [
-    { name = "opik" },
-]
-transformers = [
-    { name = "accelerate" },
-    { name = "torch" },
-    { name = "transformers" },
-]
 
 [package.metadata]
 requires-dist = [
     { name = "accelerate", marker = "extra == 'all'", specifier = ">=0.20.0" },
     { name = "accelerate", marker = "extra == 'transformers'", specifier = ">=0.20.0" },
-    { name = "black", marker = "extra == 'dev'", specifier = ">=23.0.0" },
-    { name = "browser-use", marker = "extra == 'all'", specifier = ">=0.9.0" },
-    { name = "browser-use", marker = "extra == 'demos'", specifier = ">=0.9.0" },
-    { name = "datasets", marker = "extra == 'all'", specifier = ">=2.0.0" },
-    { name = "datasets", marker = "extra == 'demos'", specifier = ">=2.0.0" },
-    { name = "git-changelog", marker = "extra == 'dev'", specifier = ">=2.5.0" },
     { name = "langchain-litellm", marker = "extra == 'all'", specifier = ">=0.2.0" },
     { name = "langchain-litellm", marker = "extra == 'langchain'", specifier = ">=0.2.0" },
-    { name = "langchain-openai", specifier = ">=0.3.35" },
+    { name = "langchain-openai", marker = "extra == 'all'", specifier = ">=0.3.35" },
+    { name = "langchain-openai", marker = "extra == 'langchain'", specifier = ">=0.3.35" },
     { name = "litellm", specifier = ">=1.78.0" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.0.0" },
-    { name = "openpyxl", marker = "extra == 'all'", specifier = ">=3.0.0" },
-    { name = "openpyxl", marker = "extra == 'demos'", specifier = ">=3.0.0" },
     { name = "opik", marker = "extra == 'all'", specifier = ">=1.8.0" },
     { name = "opik", marker = "extra == 'observability'", specifier = ">=1.8.0" },
-    { name = "pandas", marker = "extra == 'all'", specifier = ">=2.0.0" },
-    { name = "pandas", marker = "extra == 'demos'", specifier = ">=2.0.0" },
-    { name = "playwright", marker = "extra == 'all'", specifier = ">=1.40.0" },
-    { name = "playwright", marker = "extra == 'demos'", specifier = ">=1.40.0" },
-    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.0.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.21.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
-    { name = "pyyaml", marker = "extra == 'all'", specifier = ">=6.0.0" },
-    { name = "pyyaml", marker = "extra == 'demos'", specifier = ">=6.0.0" },
-    { name = "rich", marker = "extra == 'all'", specifier = ">=13.0.0" },
-    { name = "rich", marker = "extra == 'demos'", specifier = ">=13.0.0" },
     { name = "tenacity", specifier = ">=8.0.0" },
     { name = "torch", marker = "extra == 'all'", specifier = ">=2.0.0" },
     { name = "torch", marker = "extra == 'transformers'", specifier = ">=2.0.0" },
     { name = "transformers", marker = "extra == 'all'", specifier = ">=4.30.0" },
     { name = "transformers", marker = "extra == 'transformers'", specifier = ">=4.30.0" },
 ]
-provides-extras = ["observability", "demos", "langchain", "transformers", "dev", "all"]
+provides-extras = ["observability", "langchain", "transformers", "all"]
+
+[package.metadata.requires-dev]
+demos = [
+    { name = "browser-use", specifier = ">=0.9.0" },
+    { name = "datasets", specifier = ">=2.0.0" },
+    { name = "openpyxl", specifier = ">=3.0.0" },
+    { name = "pandas", specifier = ">=2.0.0" },
+    { name = "playwright", specifier = ">=1.40.0" },
+    { name = "pyyaml", specifier = ">=6.0.0" },
+    { name = "rich", specifier = ">=13.0.0" },
+]
+dev = [
+    { name = "black", specifier = ">=23.0.0" },
+    { name = "git-changelog", specifier = ">=2.5.0" },
+    { name = "mypy", specifier = ">=1.0.0" },
+    { name = "pre-commit", specifier = ">=3.0.0" },
+    { name = "pytest", specifier = ">=7.0.0" },
+    { name = "pytest-asyncio", specifier = ">=0.21.0" },
+]
 
 [[package]]
 name = "aiofiles"
