@@ -448,6 +448,14 @@ class ACEAgent:
         # Extract cited bullet IDs from agent thoughts (clean, no tool noise)
         cited_ids = self._extract_cited_ids_from_history(history)
 
+        # Filter out invalid bullet IDs (ones that don't exist in playbook)
+        # This prevents errors from hallucinated or malformed citations
+        valid_cited_ids = [
+            bullet_id
+            for bullet_id in cited_ids
+            if self.playbook.get_bullet(bullet_id) is not None
+        ]
+
         # Create GeneratorOutput (browser executed, not ACE Generator)
         # This is a "fake" output to satisfy Reflector's interface
         # IMPORTANT: Pass full trace as reasoning so Reflector can analyze agent's thoughts
@@ -456,7 +464,7 @@ class ACEAgent:
                 "feedback"
             ],  # Full chronological trace with thoughts/actions/results
             final_answer=trace_info["output"],
-            bullet_ids=cited_ids,  # Extracted from agent thoughts
+            bullet_ids=valid_cited_ids,  # Filtered to only valid IDs that exist in playbook
             raw={
                 "steps": trace_info["steps"],
                 "success": success,

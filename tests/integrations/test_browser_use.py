@@ -625,6 +625,110 @@ class TestCitationExtraction:
 
         assert cited_ids == []
 
+    def test_filters_invalid_bullet_ids_against_playbook(self):
+        """
+        Test that cited IDs are validated against playbook in Reflector call.
+
+        This ensures only valid bullet IDs (that exist in playbook) are passed
+        to the Reflector, preventing errors from hallucinated or invalid citations.
+        """
+        from browser_use import ChatBrowserUse
+        from unittest.mock import MagicMock
+        from ace import Playbook
+
+        # Create agent with playbook containing specific bullets
+        playbook = Playbook()
+        bullet1 = playbook.add_bullet("navigation", "Always scroll before clicking")
+        bullet2 = playbook.add_bullet("extraction", "Use CSS selectors for data")
+
+        agent = ACEAgent(llm=ChatBrowserUse(), playbook=playbook)
+
+        # Mock history with thoughts containing BOTH valid and invalid IDs
+        mock_thought = MagicMock()
+        # Valid: navigation-00001, extraction-00001
+        # Invalid: nonexistent-99999, fake-12345
+        mock_thought.thinking = (
+            f"Following [{bullet1.id}], I scrolled first. "
+            f"Then using [nonexistent-99999] and [{bullet2.id}]. "
+            f"Also tried [fake-12345]."
+        )
+
+        mock_history = MagicMock()
+        mock_history.model_thoughts.return_value = [mock_thought]
+        mock_history.final_result.return_value = "Result"
+        mock_history.number_of_steps.return_value = 2
+        mock_history.history = []  # Empty history for trace extraction
+
+        # Capture what bullet_ids are passed to GeneratorOutput
+        captured_bullet_ids = None
+
+        original_build = agent._build_rich_feedback
+
+        def patched_build(*args, **kwargs):
+            return original_build(*args, **kwargs)
+
+        agent._build_rich_feedback = patched_build
+
+        # Mock Reflector to capture generator_output
+        from ace import ReflectorOutput
+
+        def capture_reflect(*args, **kwargs):
+            nonlocal captured_bullet_ids
+            gen_output = kwargs.get("generator_output")
+            if gen_output:
+                captured_bullet_ids = gen_output.bullet_ids
+            return ReflectorOutput(
+                reasoning="mock",
+                error_identification="none",
+                root_cause_analysis="none",
+                correct_approach="continue",
+                key_insight="test",
+                bullet_tags=[],
+                raw={},
+            )
+
+        agent.reflector.reflect = capture_reflect
+
+        # Mock curator
+        from ace import CuratorOutput, DeltaBatch
+
+        agent.curator.curate = lambda *args, **kwargs: CuratorOutput(
+            delta=DeltaBatch(reasoning="mock", operations=[]), raw={}
+        )
+
+        # Run learning
+        import asyncio
+
+        asyncio.run(
+            agent._learn_from_execution(
+                task="Test task", history=mock_history, success=True
+            )
+        )
+
+        # ASSERTIONS: Only valid IDs should be passed
+        assert captured_bullet_ids is not None, "bullet_ids not captured"
+
+        # Should contain valid IDs
+        assert (
+            bullet1.id in captured_bullet_ids
+        ), f"Valid ID {bullet1.id} should be included"
+        assert (
+            bullet2.id in captured_bullet_ids
+        ), f"Valid ID {bullet2.id} should be included"
+
+        # Should NOT contain invalid IDs
+        assert (
+            "nonexistent-99999" not in captured_bullet_ids
+        ), "Invalid ID should be filtered out"
+        assert (
+            "fake-12345" not in captured_bullet_ids
+        ), "Invalid ID should be filtered out"
+
+        # Should have exactly 2 IDs (the valid ones)
+        assert (
+            len(captured_bullet_ids) == 2
+        ), f"Expected 2 valid IDs, got {len(captured_bullet_ids)}: {captured_bullet_ids}"
+
 
 class TestBackwardsCompatibility:
     """Test that existing code patterns still work."""
