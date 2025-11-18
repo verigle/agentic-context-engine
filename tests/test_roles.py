@@ -115,10 +115,12 @@ class TestGenerator(unittest.TestCase):
 
     def test_generate_with_playbook_bullets(self):
         """Test generation uses bullets from playbook."""
-        bullet = self.playbook.add_bullet("math", "Show your work", bullet_id="b1")
+        bullet = self.playbook.add_bullet(
+            "math", "Show your work", bullet_id="math-001"
+        )
 
         self.mock_llm.set_response(
-            '{"reasoning": "Used bullet b1 to solve", "final_answer": "4", "bullet_ids": ["b1"]}'
+            '{"reasoning": "Following [math-001], I will show my work to solve", "final_answer": "4"}'
         )
 
         generator = Generator(self.mock_llm)
@@ -129,7 +131,7 @@ class TestGenerator(unittest.TestCase):
         )
 
         self.assertEqual(output.final_answer, "4")
-        self.assertIn("b1", output.bullet_ids)
+        self.assertIn("math-001", output.bullet_ids)
 
     def test_generate_retry_on_invalid_json(self):
         """Test retry logic when LLM returns invalid JSON."""
@@ -138,7 +140,7 @@ class TestGenerator(unittest.TestCase):
         self.mock_llm.set_responses(
             [
                 "This is not valid JSON at all",
-                '{"reasoning": "Retry worked!", "final_answer": "Success", "bullet_ids": []}',
+                '{"reasoning": "Retry worked!", "final_answer": "Success"}',
             ]
         )
 
@@ -168,7 +170,7 @@ class TestGenerator(unittest.TestCase):
     def test_generate_strips_markdown_fences(self):
         """Test that markdown code fences are stripped from JSON."""
         self.mock_llm.set_response(
-            '```json\n{"reasoning": "With fences", "final_answer": "OK", "bullet_ids": []}\n```'
+            '```json\n{"reasoning": "With fences", "final_answer": "OK"}\n```'
         )
 
         generator = Generator(self.mock_llm)
@@ -185,7 +187,7 @@ class TestGenerator(unittest.TestCase):
         self.mock_llm.set_responses(
             [
                 "Bad JSON",
-                '{"reasoning": "Fixed", "final_answer": "OK", "bullet_ids": []}',
+                '{"reasoning": "Fixed", "final_answer": "OK"}',
             ]
         )
 
@@ -203,7 +205,7 @@ class TestGenerator(unittest.TestCase):
     def test_generate_with_reflection(self):
         """Test generation with reflection from previous attempt."""
         self.mock_llm.set_response(
-            '{"reasoning": "Improved answer", "final_answer": "Better", "bullet_ids": []}'
+            '{"reasoning": "Improved answer", "final_answer": "Better"}'
         )
 
         generator = Generator(self.mock_llm)
@@ -219,9 +221,9 @@ class TestGenerator(unittest.TestCase):
         self.assertIn("Previous attempt was incorrect", prompt)
 
     def test_generate_filters_invalid_bullet_ids(self):
-        """Test that non-string/int bullet_ids are filtered out."""
+        """Test that citations are extracted from reasoning."""
         self.mock_llm.set_response(
-            '{"reasoning": "Test", "final_answer": "OK", "bullet_ids": ["b1", 123, null, {"invalid": true}, "b2"]}'
+            '{"reasoning": "Following [strategy-001] and [math-002], but also [content-123] works", "final_answer": "OK"}'
         )
 
         generator = Generator(self.mock_llm)
@@ -229,10 +231,13 @@ class TestGenerator(unittest.TestCase):
             question="Test?", context="", playbook=self.playbook
         )
 
-        # Should only include valid string/int IDs
-        self.assertEqual(len(output.bullet_ids), 3)  # "b1", 123, "b2"
-        self.assertIn("b1", output.bullet_ids)
-        self.assertIn("b2", output.bullet_ids)
+        # Should extract cited IDs from reasoning
+        self.assertEqual(
+            len(output.bullet_ids), 3
+        )  # "strategy-001", "math-002", "content-123"
+        self.assertIn("strategy-001", output.bullet_ids)
+        self.assertIn("math-002", output.bullet_ids)
+        self.assertIn("content-123", output.bullet_ids)
 
 
 @pytest.mark.unit
