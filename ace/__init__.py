@@ -23,6 +23,14 @@ from .adaptation import (
     AdapterStepResult,
 )
 
+# Import SimpleAgent (high-level convenience wrapper)
+try:
+    from .agent import SimpleAgent as _SimpleAgent
+
+    SimpleAgent: Optional[type] = _SimpleAgent
+except ImportError:
+    SimpleAgent: Optional[type] = None  # type: ignore
+
 # Import optional feature detection
 from .features import has_opik, has_litellm
 
@@ -71,6 +79,7 @@ except ImportError:
     BROWSER_USE_AVAILABLE = False
 
 __all__ = [
+    # Core components
     "Bullet",
     "Playbook",
     "DeltaOperation",
@@ -93,10 +102,14 @@ __all__ = [
     "SimpleEnvironment",
     "EnvironmentResult",
     "AdapterStepResult",
+    # Out-of-box agents
+    "SimpleAgent",
+    "ACEAgent",  # Browser-use integration
+    # Utilities
+    "wrap_playbook_context",
+    # Feature flags
     "OpikIntegration",
     "LITELLM_AVAILABLE",
     "OBSERVABILITY_AVAILABLE",
-    "ACEAgent",
-    "wrap_playbook_context",
     "BROWSER_USE_AVAILABLE",
 ]
