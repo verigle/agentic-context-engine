@@ -115,7 +115,7 @@ uv run python examples/browser-use/online-shopping/ace-online-shopping.py
 
 A real-world comparison where both Browser Use agents check 10 domains for availability using browser automation. Same prompt, same Browser Use setup—but the ACE agent autonomously generates strategies from execution feedback.
 
-![Browser Use Demo Results](Browseruse_domain_demo_results.png)
+![Browser Use Demo Results](domain-checker/Browseruse_domain_demo_results.png)
 
 **How ACE + Browser-Use Works:**
 - **ACE learns strategies**: "Click search box, then type domain name"
