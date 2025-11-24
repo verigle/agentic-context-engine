@@ -82,7 +82,10 @@ class OpikIntegration:
 
         if self.enabled and enable_auto_config:
             try:
-                # Configure Opik for local use
+                # Configure Opik for local use without interactive prompts
+                # Set environment variables to prevent prompts
+                os.environ.setdefault("OPIK_URL_OVERRIDE", "http://localhost:5173")
+                os.environ.setdefault("OPIK_WORKSPACE", "default")
                 opik.configure(use_local=True)
                 logger.info(f"Opik configured locally for project: {project_name}")
             except Exception as e:
@@ -357,5 +360,11 @@ def configure_opik(
 ) -> OpikIntegration:
     """Configure global Opik integration."""
     global _global_integration
-    _global_integration = OpikIntegration(project_name=project_name, tags=tags)
+    if _should_skip_opik():
+        # Return disabled integration when OPIK_DISABLED is set
+        logger.debug("Opik configuration skipped via OPIK_DISABLED environment variable")
+        _global_integration = OpikIntegration(enable_auto_config=False)
+        _global_integration.enabled = False
+    else:
+        _global_integration = OpikIntegration(project_name=project_name, tags=tags)
     return _global_integration
