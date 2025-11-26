@@ -50,7 +50,7 @@ class InstructorClient:
     def __init__(
         self,
         llm: LLMClient,
-        mode: str = "json",
+        mode=instructor.Mode.MD_JSON,
         max_retries: int = 3,
     ):
         """
@@ -58,7 +58,8 @@ class InstructorClient:
 
         Args:
             llm: Base LLM client (must be LiteLLMClient or compatible)
-            mode: Instructor mode for structured output
+            mode: Instructor mode for structured output (default: instructor.Mode.MD_JSON)
+                   MD_JSON works with all models including local ones; use Mode.JSON for OpenAI structured outputs
             max_retries: Maximum validation retries
         """
 
@@ -191,14 +192,14 @@ class InstructorClient:
 
 
 def wrap_with_instructor(
-    llm: LLMClient, mode: str = "json", max_retries: int = 3
+    llm: LLMClient, mode=instructor.Mode.MD_JSON, max_retries: int = 3
 ) -> InstructorClient:
     """
     Convenience function to wrap an LLM client with Instructor capabilities.
 
     Args:
         llm: Base LLM client to wrap
-        mode: Instructor mode
+        mode: Instructor mode (default: instructor.Mode.MD_JSON for broad compatibility)
         max_retries: Maximum validation retries
 
     Returns:

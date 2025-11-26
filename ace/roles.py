@@ -169,7 +169,17 @@ class Generator:
         max_retries: int = 3,
         retry_prompt: str = "\n\nIMPORTANT: Return ONLY a single valid JSON object. Escape all quotes properly or use single quotes. Do not include any additional text outside the JSON.",
     ) -> None:
-        self.llm = llm
+        # Auto-wrap with Instructor if not already wrapped (Instructor is a core dependency)
+        from .llm_providers.instructor_client import (
+            InstructorClient,
+            wrap_with_instructor,
+        )
+
+        if not isinstance(llm, InstructorClient):
+            self.llm = wrap_with_instructor(llm)
+        else:
+            self.llm = llm
+
         self.prompt_template = prompt_template
         self.max_retries = max_retries
         self.retry_prompt = retry_prompt
@@ -228,42 +238,12 @@ class Generator:
         # Filter out non-LLM kwargs (like 'sample' used for ReplayGenerator)
         llm_kwargs = {k: v for k, v in kwargs.items() if k != "sample"}
 
-        # Use Instructor if available for automatic validation
-        if hasattr(self.llm, "complete_structured"):
-            output = self.llm.complete_structured(
-                base_prompt, GeneratorOutput, **llm_kwargs
-            )
-            output.bullet_ids = extract_cited_bullet_ids(output.reasoning)
-            return output
-
-        # Manual JSON parsing with retry (backward compatibility)
-        prompt = base_prompt
-        last_error: Optional[Exception] = None
-
-        for attempt in range(self.max_retries):
-            response = self.llm.complete(prompt, **llm_kwargs)
-            try:
-                data = _safe_json_loads(response.text)
-                reasoning = str(data.get("reasoning", ""))
-                final_answer = str(data.get("final_answer", ""))
-
-                # Extract bullet IDs from reasoning citations
-                bullet_ids = extract_cited_bullet_ids(reasoning)
-
-                return GeneratorOutput(
-                    reasoning=reasoning,
-                    final_answer=final_answer,
-                    bullet_ids=bullet_ids,
-                    raw=data,
-                )
-            except ValueError as err:
-                last_error = err
-                if attempt + 1 >= self.max_retries:
-                    break
-                # Append retry instruction to help LLM produce valid JSON
-                # Configurable via retry_prompt parameter (supports different languages/models)
-                prompt = base_prompt + self.retry_prompt
-        raise RuntimeError("Generator failed to produce valid JSON.") from last_error
+        # Use Instructor for automatic validation (always available - core dependency)
+        output = self.llm.complete_structured(
+            base_prompt, GeneratorOutput, **llm_kwargs
+        )
+        output.bullet_ids = extract_cited_bullet_ids(output.reasoning)
+        return output
 
 
 class ReplayGenerator:
@@ -525,7 +505,17 @@ class Reflector:
         max_retries: int = 3,
         retry_prompt: str = "\n\nIMPORTANT: Return ONLY a single valid JSON object. Escape all quotes properly or use single quotes. Do not include any additional text outside the JSON.",
     ) -> None:
-        self.llm = llm
+        # Auto-wrap with Instructor if not already wrapped (Instructor is a core dependency)
+        from .llm_providers.instructor_client import (
+            InstructorClient,
+            wrap_with_instructor,
+        )
+
+        if not isinstance(llm, InstructorClient):
+            self.llm = wrap_with_instructor(llm)
+        else:
+            self.llm = llm
+
         self.prompt_template = prompt_template
         self.max_retries = max_retries
         self.retry_prompt = retry_prompt
@@ -585,63 +575,8 @@ class Reflector:
         # Filter out non-LLM kwargs (like 'sample' used for ReplayGenerator)
         llm_kwargs = {k: v for k, v in kwargs.items() if k != "sample"}
 
-        # Use Instructor if available for automatic validation
-        if hasattr(self.llm, "complete_structured"):
-            return self.llm.complete_structured(
-                base_prompt, ReflectorOutput, **llm_kwargs
-            )
-
-        # Manual JSON parsing with retry (backward compatibility)
-        result: Optional[ReflectorOutput] = None
-        prompt = base_prompt
-        last_error: Optional[Exception] = None
-
-        for round_idx in range(max_refinement_rounds):
-            prompt = base_prompt
-            for attempt in range(self.max_retries):
-                response = self.llm.complete(
-                    prompt, refinement_round=round_idx, **llm_kwargs
-                )
-                try:
-                    data = _safe_json_loads(response.text)
-                    bullet_tags: List[BulletTag] = []
-                    tags_payload = data.get("bullet_tags", [])
-                    if isinstance(tags_payload, Sequence):
-                        for item in tags_payload:
-                            if (
-                                isinstance(item, dict)
-                                and "id" in item
-                                and "tag" in item
-                            ):
-                                bullet_tags.append(
-                                    BulletTag(
-                                        id=str(item["id"]), tag=str(item["tag"]).lower()
-                                    )
-                                )
-                    candidate = ReflectorOutput(
-                        reasoning=str(data.get("reasoning", "")),
-                        error_identification=str(data.get("error_identification", "")),
-                        root_cause_analysis=str(data.get("root_cause_analysis", "")),
-                        correct_approach=str(data.get("correct_approach", "")),
-                        key_insight=str(data.get("key_insight", "")),
-                        bullet_tags=bullet_tags,
-                        raw=data,
-                    )
-                    result = candidate
-                    # Early exit if we already have actionable output
-                    if bullet_tags or candidate.key_insight:
-                        return candidate
-                    break
-                except ValueError as err:
-                    last_error = err
-                    if attempt + 1 >= self.max_retries:
-                        break
-                    # Append retry instruction to help LLM produce valid JSON
-                    # Configurable via retry_prompt parameter (supports different languages/models)
-                    prompt = base_prompt + self.retry_prompt
-        if result is None:
-            raise RuntimeError("Reflector failed to produce a result.") from last_error
-        return result
+        # Use Instructor for automatic validation (always available - core dependency)
+        return self.llm.complete_structured(base_prompt, ReflectorOutput, **llm_kwargs)
 
 
 class CuratorOutput(BaseModel):
@@ -712,7 +647,17 @@ class Curator:
         max_retries: int = 3,
         retry_prompt: str = "\n\nIMPORTANT: Return ONLY a single valid JSON object. The JSON must be complete with ALL required fields:\n- reasoning (string)\n- deduplication_check (object)\n- operations (array)\n- quality_metrics (object with avg_atomicity, operations_count, estimated_impact)\nEscape all quotes properly and ensure the JSON is complete and well-formed.",
     ) -> None:
-        self.llm = llm
+        # Auto-wrap with Instructor if not already wrapped (Instructor is a core dependency)
+        from .llm_providers.instructor_client import (
+            InstructorClient,
+            wrap_with_instructor,
+        )
+
+        if not isinstance(llm, InstructorClient):
+            self.llm = wrap_with_instructor(llm, max_retries=max_retries)
+        else:
+            self.llm = llm
+
         self.prompt_template = prompt_template
         self.max_retries = max_retries
         self.retry_prompt = retry_prompt
@@ -775,30 +720,8 @@ class Curator:
         # Filter out non-LLM kwargs (like 'sample' used for ReplayGenerator)
         llm_kwargs = {k: v for k, v in kwargs.items() if k != "sample"}
 
-        # Use Instructor if available for automatic validation
-        if hasattr(self.llm, "complete_structured"):
-            return self.llm.complete_structured(
-                base_prompt, CuratorOutput, **llm_kwargs
-            )
-
-        # Manual JSON parsing with retry (backward compatibility)
-        prompt = base_prompt
-        last_error: Optional[Exception] = None
-
-        for attempt in range(self.max_retries):
-            response = self.llm.complete(prompt, **llm_kwargs)
-            try:
-                data = _safe_json_loads(response.text)
-                delta = DeltaBatch.from_json(data)
-                return CuratorOutput(delta=delta, raw=data)
-            except ValueError as err:
-                last_error = err
-                if attempt + 1 >= self.max_retries:
-                    break
-                # Append retry instruction to help LLM produce valid JSON
-                # Configurable via retry_prompt parameter (supports different languages/models)
-                prompt = base_prompt + self.retry_prompt
-        raise RuntimeError("Curator failed to produce valid JSON.") from last_error
+        # Use Instructor for automatic validation (always available - core dependency)
+        return self.llm.complete_structured(base_prompt, CuratorOutput, **llm_kwargs)
 
 
 def _make_playbook_excerpt(playbook: Playbook, bullet_ids: Sequence[str]) -> str:
