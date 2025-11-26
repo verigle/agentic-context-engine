@@ -125,10 +125,10 @@ python examples/compare_v1_v2_prompts.py
 python examples/advanced_prompts_v2.py
 
 # Browser automation demos (contributors: install with `uv sync --group demos`)
-uv run python examples/browser-use/baseline_domain_checker.py    # Baseline automation
-uv run python examples/browser-use/ace_domain_checker.py         # ACE-enhanced automation
-uv run python examples/browser-use/baseline_form_filler.py       # Baseline form filling
-uv run python examples/browser-use/ace_form_filler.py            # ACE-enhanced form filling
+uv run python examples/browser-use/domain-checker/baseline_domain_checker.py  # Baseline automation
+uv run python examples/browser-use/domain-checker/ace_domain_checker.py       # ACE-enhanced automation
+uv run python examples/browser-use/form-filler/baseline_form_filler.py        # Baseline form filling
+uv run python examples/browser-use/form-filler/ace_form_filler.py             # ACE-enhanced form filling
 ```
 
 ### Development Scripts (Research Only)
@@ -168,10 +168,11 @@ python scripts/explain_ace_performance.py
 **ace/** - Core library modules:
 - `playbook.py`: Bullet and Playbook classes for context storage (TOON format)
 - `delta.py`: DeltaOperation and DeltaBatch for incremental updates
-- `roles.py`: Generator, Reflector, Curator implementations
+- `roles.py`: Generator, ReplayGenerator, Reflector, Curator implementations
 - `adaptation.py`: OfflineAdapter and OnlineAdapter orchestration loops
 - `llm.py`: LLMClient interface with DummyLLMClient and TransformersLLMClient
 - `prompts.py`: Default prompt templates (v1.0 - simple, for tutorials)
+- `prompts_v2.py`: Intermediate prompts (v2.0 - improved structure)
 - `prompts_v2_1.py`: State-of-the-art prompts with MCP enhancements (v2.1 - **RECOMMENDED**)
 - `features.py`: Centralized optional dependency detection
 - `llm_providers/`: Production LLM client implementations
@@ -180,6 +181,7 @@ python scripts/explain_ace_performance.py
 - `integrations/`: Wrappers for external agentic frameworks (**key pattern**)
   - `base.py`: Base integration pattern and utilities
   - `browser_use.py`: ACEAgent - browser automation with learning
+  - `claude_code.py`: ACEClaudeCode - Claude Code CLI with learning
   - `langchain.py`: ACELangChain - wrap LangChain chains/agents
   - `litellm.py`: ACELiteLLM - simple conversational agent
 
@@ -198,10 +200,14 @@ python scripts/explain_ace_performance.py
 
 **tests/** - Test suite using unittest framework
 
-**examples/** - Production-ready example scripts:
-- Basic usage examples with various LLM providers
-- Browser automation demos comparing baseline vs ACE-enhanced approaches
-- Advanced prompt engineering examples
+**examples/** - Production-ready example scripts organized by integration:
+- `browser-use/` - Browser automation demos (domain-checker, form-filler, online-shopping)
+- `langchain/` - LangChain chain and agent examples
+- `claude-code-integration/` & `claude-code-loop/` - Claude Code integration patterns
+- `helicone/` - Helicone observability integration
+- `LMstudio/` & `ollama/` - Local model examples
+- `litellm/` - LiteLLM provider examples
+- `prompts/` - Prompt version comparison examples
 
 **scripts/** - Research and development scripts (not in PyPI package)
 
@@ -238,88 +244,12 @@ python scripts/explain_ace_performance.py
    - Real-time monitoring of Generator, Reflector, and Curator interactions
    - View traces at https://www.comet.com/opik or local Opik instance
 
-### New Features & Advanced Usage
+### Key Features
 
-#### Configurable Retry Prompts (Added in v0.4.1)
-All three ACE roles now support customizable retry prompts for JSON parsing failures:
-
-```python
-from ace import Generator, Reflector, Curator, LiteLLMClient
-
-llm = LiteLLMClient(model="gpt-4")
-
-# Use English defaults (recommended)
-generator = Generator(llm)
-reflector = Reflector(llm)
-curator = Curator(llm)
-
-# Or customize for specific models/languages
-generator = Generator(
-    llm,
-    retry_prompt="\n\n[日本語] 有効なJSONオブジェクトのみを返してください。"
-)
-```
-
-**Benefits**:
-- Reduces JSON parse failures by 7-12%
-- Supports multilingual models
-- Consistent behavior across all roles
-
-#### Checkpoint Saving During Training
-OfflineAdapter now supports automatic checkpoint saving:
-
-```python
-from ace import OfflineAdapter
-
-adapter = OfflineAdapter(playbook, generator, reflector, curator)
-
-# Save playbook every 10 successful samples
-results = adapter.run(
-    samples,
-    environment,
-    epochs=3,
-    checkpoint_interval=10,  # Save every 10 samples
-    checkpoint_dir="./checkpoints"  # Where to save
-)
-```
-
-**Output**:
-- `checkpoint_10.json`, `checkpoint_20.json`, etc. (numbered)
-- `latest.json` (always overwritten with most recent)
-
-**Use Cases**:
-- Resume training after interruption
-- Compare playbook evolution over time
-- Early stopping based on validation metrics
-
-#### Prompt Version Guidance
-The framework includes two prompt versions (see `docs/PROMPTS.md`):
-
-1. **v1.0** (`prompts.py`): Simple, minimal - use for tutorials and learning
-2. **v2.1** (`prompts_v2_1.py`): **RECOMMENDED** for production (+17% success rate)
-
-```python
-from ace.prompts_v2_1 import PromptManager
-
-prompt_mgr = PromptManager()
-generator = Generator(llm, prompt_template=prompt_mgr.get_generator_prompt())
-reflector = Reflector(llm, prompt_template=prompt_mgr.get_reflector_prompt())
-curator = Curator(llm, prompt_template=prompt_mgr.get_curator_prompt())
-```
-
-#### Feature Detection
-Check which optional dependencies are available:
-
-```python
-from ace.features import has_opik, has_litellm, get_available_features
-
-if has_opik():
-    print("Opik observability available")
-
-# Or check all features at once
-features = get_available_features()
-# {'opik': True, 'litellm': True, 'langchain': False, ...}
-```
+- **Configurable Retry Prompts**: All roles support custom `retry_prompt` for JSON parsing failures (reduces failures by 7-12%)
+- **Checkpoint Saving**: `OfflineAdapter.run()` accepts `checkpoint_interval` and `checkpoint_dir` for automatic playbook saves
+- **Prompt Versions**: v1.0 (`prompts.py`) for tutorials, v2.1 (`prompts_v2_1.py`) for production (+17% success rate)
+- **Feature Detection**: Use `ace.features.has_opik()`, `has_litellm()`, `get_available_features()` to check optional deps
 
 ## Python Requirements
 - Python 3.11+ (developed with 3.12)
@@ -334,43 +264,6 @@ features = get_available_features()
   - Managed via `[dependency-groups]` (PEP 735)
   - Auto-installed for contributors via `uv sync`
   - Includes: pytest, black, mypy, pre-commit, git-changelog
-
-## Automatic Token Usage & Cost Tracking
-
-ACE framework now includes **automatic token usage and cost tracking** via Opik integration:
-
-### Features
-- ✅ **Zero-configuration tracking**: Automatic when using `observability` dependencies
-- ✅ **Real-time cost monitoring**: View costs in Opik dashboard
-- ✅ **Multi-provider support**: Works with OpenAI, Anthropic, Google, Cohere, etc.
-- ✅ **Graceful degradation**: Works without Opik installed
-
-### Setup
-```bash
-# Install with observability features
-pip install ace-framework[observability]
-
-# Or for development
-uv sync  # Already includes Opik in optional dependencies
-```
-
-### Usage
-```python
-from ace.llm_providers.litellm_client import LiteLLMClient
-
-# Token tracking is automatically enabled
-client = LiteLLMClient(model="gpt-4")
-response = client.complete("Hello world!")
-
-# Costs and token usage automatically logged to Opik
-# View at: https://www.comet.com/opik
-```
-
-### Cost Analytics
-- **Per-call tracking**: Individual LLM call costs
-- **Role attribution**: Costs by Generator/Reflector/Curator
-- **Adaptation metrics**: Cost efficiency over time
-- **Budget monitoring**: Optional cost limits and alerts
 
 ## Environment Setup
 Set your LLM API key for examples and demos:

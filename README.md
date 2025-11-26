@@ -54,7 +54,7 @@ print(answer)  # "ACE allows AI agents to remember and learn from experience!"
 
 ## 🎯 Integrations
 
-ACE provides three ready-to-use integrations:
+ACE provides four ready-to-use integrations:
 
 ### **ACELiteLLM** - Simplest Start 🚀
 
@@ -109,6 +109,29 @@ await agent.run(task="New task")  # Starts smart!
 
 **Features:** Drop-in replacement for `browser_use.Agent`, automatic learning, reusable playbooks
 **[→ Browser Use Guide](examples/browser-use/README.md)**
+
+### **ACEClaudeCode** - Claude Code CLI 💻
+
+Self-improving coding agent using [Claude Code](https://claude.ai/code):
+
+```python
+from ace import ACEClaudeCode
+
+agent = ACEClaudeCode(
+    working_dir="./my_project",
+    ace_model="gpt-4o-mini"
+)
+
+# Execute coding tasks - agent learns from each
+result = agent.run(task="Add unit tests for utils.py")
+agent.save_playbook("coding_expert.json")
+
+# Reuse learned knowledge
+agent = ACEClaudeCode(working_dir="./project", playbook_path="coding_expert.json")
+```
+
+**Features:** Claude Code CLI wrapper, automatic learning, task execution traces
+**[→ Claude Code Loop Example](examples/claude-code-loop/)**
 
 ### **ACELangChain** - Complex Workflows ⛓️
 
