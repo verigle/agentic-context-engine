@@ -41,6 +41,7 @@ cd agentic-context-engine/examples/claude-code-loop
 ### 2. Install
 
 ```bash
+uv venv
 uv pip install ace-framework
 ```
 
