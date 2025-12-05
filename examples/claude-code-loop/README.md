@@ -7,9 +7,9 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-**Claude Code that learns from itself 📖**
+**Claude Code that learns from itself**
 
-Run Claude Code in a continuous loop. After each run, ACE analyzes what worked and what failed, then injects those learnings into the next iteration. Walk away and come back to finished work.
+Run Claude Code in a continuous loop. After each run, ACE (our open-source framework for agents that learn from execution feedback) analyzes what worked and what failed, then injects those learnings into the next iteration. Walk away and come back to finished work.
 
 ---
 
@@ -29,13 +29,22 @@ Used this to translate the ACE Python repo to TypeScript:
 
 ## 🚀 Quick Start
 
-### 1. Install
+Simple setup: clone the repo, add your API key, write a prompt, and run.
+
+### 1. Clone
+
+```bash
+git clone https://github.com/kayba-ai/agentic-context-engine.git
+cd agentic-context-engine/examples/claude-code-loop
+```
+
+### 2. Install
 
 ```bash
 pip install ace-framework
 ```
 
-### 2. Setup
+### 3. Setup
 
 ```bash
 cp .env.example .env
@@ -43,25 +52,36 @@ cp .env.example .env
 ./reset_workspace.sh  # Initialize workspace
 ```
 
-### 3. Define Your Task
+`reset_workspace.sh` copies `workspace_template/` to `workspace/` and initializes it as a git repo. Claude Code runs inside `workspace/` and is constrained to that directory. If you want to work on an existing codebase, put it in `workspace_template/` first.
+
+### 4. Define Your Task
 
 Edit `prompt.md` with your task (see [Prompt Tips](#-prompt-tips) for guidance).
 
-### 4. Run
+### 5. Run
 
 ```bash
 python ace_loop.py
 ```
 
-Walk away. The loop runs until stall detection kicks in (no new commits for 4 iterations).
+Claude Code starts working in `workspace/` and learned skills get stored in `skillbook/`.
 
-### 5. Reset
+You can stop anytime with `Ctrl+C` and resume later with `python ace_loop.py` - it picks up where it left off. We recommend leaving it running until stall detection kicks in (no new commits for 4 iterations) or you're happy with the result.
+
+### 6. Reset
 
 Run this when starting a new task or trying a different prompt (workspace and skillbook get archived to logs).
 
 ```bash
 ./reset_workspace.sh
 ```
+
+---
+
+## 💳 What You Need
+
+- **Claude Code:** Claude subscription (Max plan with Opus 4.5 recommended - tokens won't run out). On cheaper plans, if you hit your limit just resume later with `python ace_loop.py`
+- **Learning loop:** Anthropic API key (~$0.01-0.05 per iteration with Sonnet 4.5)
 
 ---
 
@@ -92,13 +112,6 @@ When porting is complete, improve code quality and fix any issues.
 
 ---
 
-## 💰 Cost
-
-- **Claude Code:** Your Claude subscription (Opus 4.5 on Max Subscription recommended)
-- **Learning loop:** ~$0.01-0.05 per iteration (Sonnet 4.5 recommended)
-
----
-
 ## 🔄 How It Works
 
 ```
@@ -116,13 +129,14 @@ Each iteration builds on previous work. Skills compound over time.
 
 ## 📁 Files
 
-| File                 | What it does                           |
-| -------------------- | -------------------------------------- |
-| `prompt.md`          | Your task (edit this)                  |
-| `ace_loop.py`        | Main loop script                       |
-| `workspace/`         | Where Claude Code works                |
-| `.data/skillbooks/`  | Learned strategies (archived on reset) |
-| `reset_workspace.sh` | Initialize/reset workspace             |
+| File                  | What it does                              |
+| --------------------- | ----------------------------------------- |
+| `prompt.md`           | Your task (edit this)                     |
+| `ace_loop.py`         | Main loop script                          |
+| `workspace_template/` | Your codebase + .env (copied on reset)    |
+| `workspace/`          | Where Claude Code works                   |
+| `.data/skillbooks/`   | Learned strategies (archived on reset)    |
+| `reset_workspace.sh`  | Initialize/reset workspace                |
 
 ---
 
