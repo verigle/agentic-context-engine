@@ -92,6 +92,8 @@ agent2 = ACELiteLLM.from_skillbook("my_agent.json", model="gpt-4o-mini")
 
 Wrap any LangChain chain/agent with learning:
 
+**Best for:** Multi-step workflows, tool-using agents
+
 <details>
 <summary>Click to view code example</summary>
 
@@ -103,13 +105,13 @@ result = ace_chain.invoke({"question": "Your task"})  # Learns automatically
 ```
 
 </details>
-<br>
-
-**Best for:** Multi-step workflows, tool-using agents
 
 ### **ACEAgent** - Enhance Browser-Use Agent with Self-Optimizing 🌐
 
 Self-improving browser agents with [browser-use](https://github.com/browser-use/browser-use):
+
+**Features:** Drop-in replacement for `browser_use.Agent`, automatic learning, reusable skillbooks
+**[→ Browser Use Guide](examples/browser-use/README.md)**
 
 <details>
 <summary>Click to view code example</summary>
@@ -137,14 +139,13 @@ await agent.run(task="New task")  # Starts smart!
 ```
 
 </details>
-<br>
-
-**Features:** Drop-in replacement for `browser_use.Agent`, automatic learning, reusable skillbooks
-**[→ Browser Use Guide](examples/browser-use/README.md)**
 
 ### **ACEClaudeCode** - Claude Code CLI 💻
 
 Self-improving coding agent using [Claude Code](https://claude.ai/code):
+
+**Features:** Claude Code CLI wrapper, automatic learning, task execution traces
+**[→ Claude Code Loop Example](examples/claude-code-loop/)**
 
 <details>
 <summary>Click to view code example</summary>
@@ -166,10 +167,6 @@ agent = ACEClaudeCode(working_dir="./project", skillbook_path="coding_expert.jso
 ```
 
 </details>
-<br>
-
-**Features:** Claude Code CLI wrapper, automatic learning, task execution traces
-**[→ Claude Code Loop Example](examples/claude-code-loop/)**
 
 ---
 
